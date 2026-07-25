@@ -916,9 +916,3 @@ a:hover { text-decoration: underline; }
 .chart-line { fill: none; stroke: #0969da; stroke-width: 2; vector-effect: non-scaling-stroke; }
 .chart-dot { fill: #0969da; }
 @media print { .chart-head select { display: none; } }
-
-/* multi-line chart legend */
-.chart-legend { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; padding: 4px 4px 0; }
-.cl-item { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: #424a53; }
-.cl-dot { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
-.cl-note { font-size: 11px; color: #8b949e; margin-left: auto; font-style: italic; }

@@ -63,53 +63,39 @@ function accum(map: Map<string, Base>, key: string, c: Base) {
 }
 
 // ---- time-series line chart (pure SVG, no deps) ----
-// All metrics at once; each line is scaled to its own max so they're comparable.
-const CHART_COLORS: Record<string, string> = {
-  count: "#0969da", revenue: "#1a7f37", avg: "#bf8700", units: "#8250df", inches: "#cf222e",
-};
-function LineChart({ series }: { series: ReportSeriesPoint[] }) {
+function LineChart({ series, metric }: { series: ReportSeriesPoint[]; metric: Metric }) {
   if (!series.length) return <div className="report-empty">No data in range.</div>;
-  const W = 1000, H = 230, padL = 14, padR = 14, padT = 14, padB = 26;
+  const W = 1000, H = 240, padL = 60, padR = 14, padT = 14, padB = 30;
   const innerW = W - padL - padR, innerH = H - padT - padB;
   const n = series.length;
+  const max = Math.max(1, ...series.map((s) => metric.get(s)));
   const x = (i: number) => padL + (n === 1 ? innerW / 2 : (i / (n - 1)) * innerW);
+  const y = (v: number) => padT + innerH - (v / max) * innerH;
+  const line = series.map((s, i) => `${x(i)},${y(metric.get(s))}`).join(" ");
+  const area = `${x(0)},${padT + innerH} ${line} ${x(n - 1)},${padT + innerH}`;
   const step = Math.max(1, Math.ceil(n / 10));
   return (
-    <>
-      <svg className="report-chart" viewBox={`0 0 ${W} ${H}`} role="img">
-        {[0, 0.5, 1].map((f) => {
-          const gy = padT + innerH - f * innerH;
-          return <line key={f} x1={padL} y1={gy} x2={W - padR} y2={gy} className="chart-grid" />;
-        })}
-        {METRICS.map((m) => {
-          const max = Math.max(1, ...series.map((s) => m.get(s)));
-          const y = (v: number) => padT + innerH - (v / max) * innerH;
-          const pts = series.map((s, i) => `${x(i)},${y(m.get(s))}`).join(" ");
-          const color = CHART_COLORS[m.key];
-          return (
-            <g key={m.key}>
-              <polyline points={pts} className="chart-line" style={{ stroke: color }} />
-              {series.map((s, i) => (
-                <circle key={i} cx={x(i)} cy={y(m.get(s))} r={2.5} style={{ fill: color }}>
-                  <title>{s.bucket} · {m.label}: {m.fmt(m.get(s))}</title>
-                </circle>
-              ))}
-            </g>
-          );
-        })}
-        {series.map((s, i) => (i % step === 0 || i === n - 1) ? (
-          <text key={`x${i}`} x={x(i)} y={H - 8} className="chart-xlab" textAnchor="middle">{s.bucket}</text>
-        ) : null)}
-      </svg>
-      <div className="chart-legend">
-        {METRICS.map((m) => (
-          <span key={m.key} className="cl-item">
-            <span className="cl-dot" style={{ background: CHART_COLORS[m.key] }} />{m.label}
-          </span>
-        ))}
-        <span className="cl-note">each line scaled to its own range</span>
-      </div>
-    </>
+    <svg className="report-chart" viewBox={`0 0 ${W} ${H}`} role="img">
+      {[0, 0.25, 0.5, 0.75, 1].map((f) => {
+        const gy = padT + innerH - f * innerH;
+        return (
+          <g key={f}>
+            <line x1={padL} y1={gy} x2={W - padR} y2={gy} className="chart-grid" />
+            <text x={padL - 8} y={gy + 4} className="chart-ylab" textAnchor="end">{metric.fmt(max * f)}</text>
+          </g>
+        );
+      })}
+      <polygon points={area} className="chart-area" />
+      <polyline points={line} className="chart-line" />
+      {series.map((s, i) => (
+        <circle key={i} cx={x(i)} cy={y(metric.get(s))} r={3} className="chart-dot">
+          <title>{s.bucket}: {metric.fmt(metric.get(s))}</title>
+        </circle>
+      ))}
+      {series.map((s, i) => (i % step === 0 || i === n - 1) ? (
+        <text key={`x${i}`} x={x(i)} y={H - 9} className="chart-xlab" textAnchor="middle">{s.bucket}</text>
+      ) : null)}
+    </svg>
   );
 }
 
@@ -154,6 +140,7 @@ export default function ReportsPanel() {
   const [groupBy, setGroupBy] = useState("shipping");
   const [groupBy2, setGroupBy2] = useState(""); // "" = none
   const [metricKey, setMetricKey] = useState("count"); // pivot cell metric
+  const [chartMetric, setChartMetric] = useState("count"); // time-series chart metric
   const [includeCancelled, setIncludeCancelled] = useState(false);
   const [sortCol, setSortCol] = useState("count"); // single-mode sort
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
@@ -283,8 +270,11 @@ export default function ReportsPanel() {
               <div className="report-chart-box">
                 <div className="chart-head">
                   <span className="chart-title">{data.seriesBucket === "hour" ? "By hour" : "By day"}</span>
+                  <select value={chartMetric} onChange={(e) => setChartMetric(e.target.value)}>
+                    {METRICS.map((m) => <option key={m.key} value={m.key}>{m.label}</option>)}
+                  </select>
                 </div>
-                <LineChart series={data.series} />
+                <LineChart series={data.series} metric={metricOf(chartMetric)} />
               </div>
             )}
 
