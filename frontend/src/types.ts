@@ -115,6 +115,7 @@ export interface SheetsResponse {
 export interface ReportGroup { key: string; count: number; revenue: number; units: number; inches: number }
 export interface ReportCell { r: string; c: string; count: number; revenue: number; units: number; inches: number }
 export interface ReportTotals { count: number; revenue: number; units: number; inches: number }
+export interface ReportSeriesPoint { bucket: string; count: number; revenue: number; units: number; inches: number }
 export interface ReportResponse {
   status: string;
   meta: {
@@ -125,6 +126,10 @@ export interface ReportResponse {
   totals: ReportTotals;
   groups?: ReportGroup[];
   cells?: ReportCell[];
+  series?: ReportSeriesPoint[];
+  seriesBucket?: "hour" | "day";
+  hasBaseline?: boolean;
+  baseline?: { inches: number; units: number };
 }
 
 export interface FacetGroup {

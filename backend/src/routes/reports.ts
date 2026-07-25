@@ -113,11 +113,17 @@ reportRouter.get("/summary", async (req, res) => {
     const SEP = String.fromCharCode(1);
     const map = new Map<string, Cell>();
     const totals: Cell = { count: 0, revenue: 0, units: 0, inches: 0 };
+    // time series: hourly for a single-day range, else daily
+    const singleDay = from.toISODate() === to.toISODate();
+    const series = new Map<string, Cell>();
 
     for (const o of orders) {
       const rev = o.totalPrice ?? 0;
       const m = orderMeasures(o.lineItems);
       totals.count += 1; totals.revenue += rev; totals.units += m.units; totals.inches += m.inches;
+
+      const dt = DateTime.fromJSDate(o.orderDate).setZone(zone);
+      addTo(series, singleDay ? dt.toFormat("HH:00") : dt.toFormat("yyyy-MM-dd"), { count: 1, revenue: rev, units: m.units, inches: m.inches });
 
       const s1 = slicesFor(groupBy, o, m, zone);
       if (!gb2) {
@@ -135,15 +141,43 @@ reportRouter.get("/summary", async (req, res) => {
 
     const round = (n: number) => Math.round(n * 100) / 100;
 
+    // Setup-month baseline: SheetEntry.baseline holds pre-integration inches/units
+    // (e.g. July 1-19). Add it only when the range starts at/before a baseline
+    // month's 1st and no fulfillment filter is applied (baseline has no pickup/ship split).
+    let baseInches = 0, baseUnits = 0;
+    if (fulfillment === "all") {
+      const bMonths: string[] = [];
+      let d = from.startOf("month");
+      while (d <= to) { if (d >= from) bMonths.push(d.toFormat("yyyy-MM")); d = d.plus({ months: 1 }); }
+      if (bMonths.length) {
+        const bwhere: Prisma.SheetEntryWhereInput = { month: { in: bMonths }, baseline: { not: null } };
+        if (stores.length === 1) bwhere.storeCode = stores[0];
+        else if (stores.length > 1) bwhere.storeCode = { in: stores };
+        const brows = await prisma.sheetEntry.findMany({ where: bwhere, select: { type: true, baseline: true } });
+        const INCH = new Set(["DTF", "UV", "Sublimation"]);
+        for (const b of brows) if (b.baseline) { if (INCH.has(b.type)) baseInches += b.baseline; else baseUnits += b.baseline; }
+      }
+    }
+    baseInches = round(baseInches);
+    const hasBaseline = baseInches > 0 || baseUnits > 0;
+    totals.inches += baseInches; totals.units += baseUnits;
+
+    const seriesArr = [...series.entries()]
+      .map(([bucket, v]) => ({ bucket, count: v.count, revenue: round(v.revenue), units: v.units, inches: round(v.inches) }))
+      .sort((a, b) => a.bucket.localeCompare(b.bucket));
+
+    const baseMeta = { seriesBucket: singleDay ? "hour" : "day", series: seriesArr, hasBaseline, baseline: { inches: baseInches, units: baseUnits } };
+
     if (!gb2) {
       const groups = [...map.entries()]
         .map(([key, v]) => ({ key, count: v.count, revenue: round(v.revenue), units: v.units, inches: round(v.inches) }))
         .sort((a, b) => b.count - a.count);
+      if (hasBaseline) groups.push({ key: "Setup (pre-integration)", count: 0, revenue: 0, units: baseUnits, inches: baseInches });
       res.json({
         status: "success",
         meta: { from: from.toFormat("yyyy-MM-dd"), to: to.toFormat("yyyy-MM-dd"), stores, fulfillment, groupBy, groupBy2: null, includeCancelled, overlaps: groupBy === "item" },
         totals: { count: totals.count, revenue: round(totals.revenue), units: totals.units, inches: round(totals.inches) },
-        groups,
+        groups, ...baseMeta,
       });
     } else {
       const cells = [...map.entries()].map(([k, v]) => {
@@ -154,7 +188,7 @@ reportRouter.get("/summary", async (req, res) => {
         status: "success",
         meta: { from: from.toFormat("yyyy-MM-dd"), to: to.toFormat("yyyy-MM-dd"), stores, fulfillment, groupBy, groupBy2: gb2, includeCancelled, overlaps: groupBy === "item" || gb2 === "item" },
         totals: { count: totals.count, revenue: round(totals.revenue), units: totals.units, inches: round(totals.inches) },
-        cells,
+        cells, ...baseMeta,
       });
     }
   } catch (e) {

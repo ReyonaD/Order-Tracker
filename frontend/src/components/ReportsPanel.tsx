@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, qs } from "../api/client";
-import { ReportCell, ReportGroup, ReportResponse, Store } from "../types";
+import { ReportCell, ReportGroup, ReportResponse, ReportSeriesPoint, Store } from "../types";
 
 // ---- date helpers (local calendar days) ----
 function fmt(d: Date): string {
@@ -62,6 +62,43 @@ function accum(map: Map<string, Base>, key: string, c: Base) {
   map.set(key, e);
 }
 
+// ---- time-series line chart (pure SVG, no deps) ----
+function LineChart({ series, metric }: { series: ReportSeriesPoint[]; metric: Metric }) {
+  if (!series.length) return <div className="report-empty">No data in range.</div>;
+  const W = 1000, H = 240, padL = 60, padR = 14, padT = 14, padB = 30;
+  const innerW = W - padL - padR, innerH = H - padT - padB;
+  const n = series.length;
+  const max = Math.max(1, ...series.map((s) => metric.get(s)));
+  const x = (i: number) => padL + (n === 1 ? innerW / 2 : (i / (n - 1)) * innerW);
+  const y = (v: number) => padT + innerH - (v / max) * innerH;
+  const line = series.map((s, i) => `${x(i)},${y(metric.get(s))}`).join(" ");
+  const area = `${x(0)},${padT + innerH} ${line} ${x(n - 1)},${padT + innerH}`;
+  const step = Math.max(1, Math.ceil(n / 10));
+  return (
+    <svg className="report-chart" viewBox={`0 0 ${W} ${H}`} role="img">
+      {[0, 0.25, 0.5, 0.75, 1].map((f) => {
+        const gy = padT + innerH - f * innerH;
+        return (
+          <g key={f}>
+            <line x1={padL} y1={gy} x2={W - padR} y2={gy} className="chart-grid" />
+            <text x={padL - 8} y={gy + 4} className="chart-ylab" textAnchor="end">{metric.fmt(max * f)}</text>
+          </g>
+        );
+      })}
+      <polygon points={area} className="chart-area" />
+      <polyline points={line} className="chart-line" />
+      {series.map((s, i) => (
+        <circle key={i} cx={x(i)} cy={y(metric.get(s))} r={3} className="chart-dot">
+          <title>{s.bucket}: {metric.fmt(metric.get(s))}</title>
+        </circle>
+      ))}
+      {series.map((s, i) => (i % step === 0 || i === n - 1) ? (
+        <text key={`x${i}`} x={x(i)} y={H - 9} className="chart-xlab" textAnchor="middle">{s.bucket}</text>
+      ) : null)}
+    </svg>
+  );
+}
+
 // ---- multi-store checkbox dropdown ----
 function StorePicker({ stores, value, onChange }: { stores: Store[]; value: string[]; onChange: (v: string[]) => void }) {
   const [open, setOpen] = useState(false);
@@ -103,6 +140,7 @@ export default function ReportsPanel() {
   const [groupBy, setGroupBy] = useState("shipping");
   const [groupBy2, setGroupBy2] = useState(""); // "" = none
   const [metricKey, setMetricKey] = useState("count"); // pivot cell metric
+  const [chartMetric, setChartMetric] = useState("count"); // time-series chart metric
   const [includeCancelled, setIncludeCancelled] = useState(false);
   const [sortCol, setSortCol] = useState("count"); // single-mode sort
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
@@ -211,6 +249,26 @@ export default function ReportsPanel() {
               <div className="report-card"><span className="rc-num">{totals.units.toLocaleString()}</span><span className="rc-lbl">Units</span></div>
               <div className="report-card"><span className="rc-num">{inch(totals.inches)}</span><span className="rc-lbl">Total inches</span></div>
             </div>
+
+            {data.series && data.series.length > 0 && (
+              <div className="report-chart-box">
+                <div className="chart-head">
+                  <span className="chart-title">{data.seriesBucket === "hour" ? "By hour" : "By day"}</span>
+                  <select value={chartMetric} onChange={(e) => setChartMetric(e.target.value)}>
+                    {METRICS.map((m) => <option key={m.key} value={m.key}>{m.label}</option>)}
+                  </select>
+                </div>
+                <LineChart series={data.series} metric={metricOf(chartMetric)} />
+              </div>
+            )}
+
+            {data.hasBaseline && (
+              <p className="report-note">
+                Includes a <b>Setup (pre-integration)</b> row of {inch(data.baseline?.inches || 0)} /
+                {" "}{(data.baseline?.units || 0).toLocaleString()} units for this month's early sales that predate the
+                live integration (inches &amp; units only — no order count/revenue, and not split by pickup/shipping or day).
+              </p>
+            )}
 
             {isPivot
               ? <Pivot cells={data.cells!} rowDim={groupBy} colDim={gb2} metric={metric} sort={pivotSort} setSort={setPivotSort} />
