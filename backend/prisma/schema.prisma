@@ -1,0 +1,212 @@
+// Order Tracker — Prisma schema
+// Replaces the Google Sheet "May" (orders) + AppSheet + Apps Script store config.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Users & roles
+// ---------------------------------------------------------------------------
+enum Role {
+  ADMIN
+  DESIGNER
+  MACHINIST
+  CUSTOMER_SERVICE
+  VIEWER
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         Role     @default(VIEWER)
+  active       Boolean  @default(true)
+  // Grants access to the Reports tab (detailed analytics + PDF export).
+  canViewReports Boolean @default(false)
+  // Grants access to the Sheets tab (monthly account tracking).
+  canViewSheets  Boolean @default(false)
+  // Per-user UI preferences: current column layout + saved presets (JSON).
+  preferences  Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Dropdown options — configurable lists that populate the workflow dropdowns
+// (designer names, machinist names, machine names, upload/print statuses).
+// This is the equivalent of the AppSheet reference sheets; admins manage them.
+// ---------------------------------------------------------------------------
+model DropdownOption {
+  id       String  @id @default(cuid())
+  category String  // "designer" | "machinist" | "machine" | "uploadStatus" | "printStatus"
+  value    String
+  sort     Int     @default(0)
+  active   Boolean @default(true)
+
+  @@unique([category, value])
+  @@index([category])
+}
+
+// ---------------------------------------------------------------------------
+// Stores — data-driven replacement for the giant if/else blocks in Apps Script
+// ---------------------------------------------------------------------------
+model Store {
+  id                 String  @id @default(cuid())
+  code               String  @unique // e.g. "PICASSO"
+  name               String
+  color              String  @default("#FFFFFF") // row background color
+  shopifyIdentifier  String  // slug used in admin.shopify.com/store/<id>/orders/<n>
+  timezone           String  @default("America/Chicago")
+
+  // Deadline cutoff hours (0-23). Orders placed after the cutoff roll to next day.
+  pickupCutoffHour   Int     @default(14)
+  shippingCutoffHour Int     @default(14)
+
+  // Shopify webhook HMAC secret (per store). Nullable until configured.
+  webhookSecret      String?
+
+  active             Boolean @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  orders             Order[]
+}
+
+// ---------------------------------------------------------------------------
+// AppConfig — small key/value store for global settings (e.g. role permissions).
+// ---------------------------------------------------------------------------
+model AppConfig {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// WebhookEvent — raw inbox of every received webhook, so nothing is ever lost.
+// Persisted BEFORE processing; on failure it can be replayed from the payload.
+// ---------------------------------------------------------------------------
+model WebhookEvent {
+  id          String    @id @default(cuid())
+  storeCode   String
+  topic       String
+  kind        String    // creation | fulfillment | cancellation
+  orderName   String?
+  payload     Json
+  status      String    @default("received") // received | processed | unmatched | error
+  message     String?
+  receivedAt  DateTime  @default(now())
+  processedAt DateTime?
+
+  @@index([status])
+  @@index([receivedAt])
+  @@index([orderName])
+}
+
+// ---------------------------------------------------------------------------
+// Orders — one row per Shopify order (was the "May" sheet)
+// ---------------------------------------------------------------------------
+enum OrderStatus {
+  NEW
+  FULFILLED
+  CANCELLED
+}
+
+model Order {
+  id             String      @id @default(cuid())
+
+  // --- Shopify identity (duplicate protection at the DB level) ---
+  shopifyOrderId String      @unique // Shopify numeric order id as string
+  orderName      String      // "#1234"
+
+  // --- Store / shipping ---
+  store          Store       @relation(fields: [storeId], references: [id])
+  storeId        String
+  storeCode      String      // denormalized for fast display/filtering
+  shippingMethod        String  // raw shipping title from Shopify
+  displayShippingMethod String  // computed label (Pick-up variants etc.)
+  isPickup       Boolean     @default(false)
+
+  // --- Timing ---
+  orderDate      DateTime    // Shopify created_at
+  deadlineAt     DateTime    // real timestamp; frontend renders "Today/Tomorrow X PM"
+  deadlineHour   Int         @default(17) // 17 = "5 PM", 19 = "7 PM" — for the deadline views
+
+  // --- Flags ---
+  urgent         Boolean     @default(false) // manual "urgent" flag
+
+  // --- Items ---
+  itemTypes      String[]    // ["T-shirt","Gang Sheet"] etc.
+  lineItems      Json?       // raw Shopify line_items for reference
+
+  // --- Links / tracking ---
+  orderUrl       String      // N: Shopify admin order url ("View Order")
+  trackingNumber String?     // O: tracking number (shipping orders)
+  trackingUrl    String?     // O: carrier tracking url
+
+  // --- Money ---
+  totalPrice     Float?      // Shopify order total (total_price)
+
+  // --- Status ---
+  status         OrderStatus @default(NEW) // P: from Shopify webhook (Fulfilled/Cancelled)
+
+  // --- Workflow columns (sheet columns G–M) ---
+  designerName   String?     // G: designer who uploaded the order file (dropdown)
+  uploadStatus   String?     // H: Uploaded / Problem (dropdown)
+  problemEmailSent Boolean   @default(false) // H: "email sent?" — only relevant when uploadStatus = Problem
+  fileLink       String?     // I: link to the uploaded order file (Dropbox)
+  printStatus    String?     // J: "printed" / empty — set by machine operators (dropdown)
+  designerNote   String?     // K: free-text note from the designer
+  machinistName  String?     // L: operator who printed the file (dropdown)
+  machineName    String?     // M: which machine the file was printed on (dropdown)
+
+  image          OrderImage?
+
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@index([storeCode])
+  @@index([status])
+  @@index([orderDate])
+}
+
+// One uploaded image per order (PNG/JPEG). Bytes live in their own table so the
+// orders list never loads the blob — only metadata is fetched with orders.
+model OrderImage {
+  id         String   @id @default(cuid())
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId    String   @unique
+  filename   String
+  mimeType   String
+  data       Bytes
+  updatedAt  DateTime @updatedAt
+}
+
+// Monthly account tracking: per store, per month, per
+// product type, the warehouse split of printed inches. Total inches are computed
+// live from orders; this table stores the manual/production warehouse split
+// (cheetahPct) and an optional manual override of the total.
+model SheetEntry {
+  id            String   @id @default(cuid())
+  month         String   // "YYYY-MM"
+  storeCode     String
+  type          String   // "DTF" | "UV" | "Sublimation"
+  cheetahPct    Float?   // deprecated: migrated into splitPct.Cheetah
+  // warehouse -> percent printed there (non-Promo warehouses; Promo = remainder).
+  // e.g. { "Cheetah": 94, "Houston": 3, "Mesquite": 2 }
+  splitPct      Json?
+  totalOverride Float?   // manual override: REPLACES the auto total
+  // additive baseline ADDED to the live auto total (e.g. pre-webhook sales for
+  // the transition month, so later orders still accumulate on top).
+  baseline      Float?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([month, storeCode, type])
+}

@@ -1,0 +1,14 @@
+{
+  "name": "order-tracker",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Self-hosted multi-store Shopify order tracker (single-service deploy)",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "cd frontend && npm ci --include=dev && npm run build && cd ../backend && npm ci --include=dev && npm run build",
+    "start": "cd backend && npm run migrate:deploy && npm run seed && npm run start",
+    "seed": "cd backend && npm run seed"
+  }
+}

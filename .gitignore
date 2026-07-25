@@ -1,0 +1,13 @@
+node_modules/
+dist/
+build/
+.env
+.env.local
+*.log
+.DS_Store
+
+# Local CSV export (not part of the app)
+*.csv
+
+# Internal planning/design notes (not part of the app)
+memory-bank/
