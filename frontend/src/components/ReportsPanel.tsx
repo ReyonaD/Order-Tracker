@@ -250,18 +250,6 @@ export default function ReportsPanel() {
               <div className="report-card"><span className="rc-num">{inch(totals.inches)}</span><span className="rc-lbl">Total inches</span></div>
             </div>
 
-            {data.series && data.series.length > 0 && (
-              <div className="report-chart-box">
-                <div className="chart-head">
-                  <span className="chart-title">{data.seriesBucket === "hour" ? "By hour" : "By day"}</span>
-                  <select value={chartMetric} onChange={(e) => setChartMetric(e.target.value)}>
-                    {METRICS.map((m) => <option key={m.key} value={m.key}>{m.label}</option>)}
-                  </select>
-                </div>
-                <LineChart series={data.series} metric={metricOf(chartMetric)} />
-              </div>
-            )}
-
             {data.hasBaseline && (
               <p className="report-note">
                 Includes a <b>Setup (pre-integration)</b> row of {inch(data.baseline?.inches || 0)} /
@@ -277,6 +265,18 @@ export default function ReportsPanel() {
                     if (sortCol === col) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
                     else { setSortCol(col); setSortDir(col === "key" ? "asc" : "desc"); }
                   }} />}
+
+            {data.series && data.series.length > 0 && (
+              <div className="report-chart-box">
+                <div className="chart-head">
+                  <span className="chart-title">{data.seriesBucket === "hour" ? "By hour" : "By day"}</span>
+                  <select value={chartMetric} onChange={(e) => setChartMetric(e.target.value)}>
+                    {METRICS.map((m) => <option key={m.key} value={m.key}>{m.label}</option>)}
+                  </select>
+                </div>
+                <LineChart series={data.series} metric={metricOf(chartMetric)} />
+              </div>
+            )}
 
             {data.meta.overlaps && (
               <p className="report-note">
