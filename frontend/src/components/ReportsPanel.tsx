@@ -99,6 +99,85 @@ function LineChart({ series, metric }: { series: ReportSeriesPoint[]; metric: Me
   );
 }
 
+// ---- date range picker (Shopify-style two-month calendar) ----
+function toDate(s: string): Date { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); }
+function fmtShort(s: string): string { return toDate(s).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }); }
+function sameDay(a: Date, b: Date): boolean { return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate(); }
+const DOW = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+
+function MonthGrid({ year, month, start, end, hover, onPick, onHover }: {
+  year: number; month: number; start: Date | null; end: Date | null; hover: Date | null;
+  onPick: (d: Date) => void; onHover: (d: Date | null) => void;
+}) {
+  const first = new Date(year, month, 1);
+  const startDow = first.getDay();
+  const daysIn = new Date(year, month + 1, 0).getDate();
+  const cells: (Date | null)[] = [];
+  for (let i = 0; i < startDow; i++) cells.push(null);
+  for (let d = 1; d <= daysIn; d++) cells.push(new Date(year, month, d));
+  const inRange = (d: Date) => {
+    if (start && end) return d >= start && d <= end;
+    if (start && hover && !end) { const lo = start < hover ? start : hover, hi = start < hover ? hover : start; return d >= lo && d <= hi; }
+    return false;
+  };
+  return (
+    <div className="dp-month">
+      <div className="dp-mlabel">{first.toLocaleDateString(undefined, { month: "long", year: "numeric" })}</div>
+      <div className="dp-grid">
+        {DOW.map((w) => <div key={w} className="dp-dow">{w}</div>)}
+        {cells.map((d, i) => d ? (
+          <button key={i} type="button" onClick={() => onPick(d)} onMouseEnter={() => onHover(d)}
+            className={`dp-day${start && sameDay(d, start) ? " dp-edge" : ""}${end && sameDay(d, end) ? " dp-edge" : ""}${inRange(d) ? " dp-in" : ""}`}>
+            {d.getDate()}
+          </button>
+        ) : <div key={i} />)}
+      </div>
+    </div>
+  );
+}
+
+function DateRangePicker({ from, to, onChange }: { from: string; to: string; onChange: (f: string, t: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const [view, setView] = useState(() => { const d = toDate(from || fmt(new Date())); return { y: d.getFullYear(), m: d.getMonth() }; });
+  const [start, setStart] = useState<Date | null>(from ? toDate(from) : null);
+  const [end, setEnd] = useState<Date | null>(to ? toDate(to) : null);
+  const [hover, setHover] = useState<Date | null>(null);
+
+  useEffect(() => { setStart(from ? toDate(from) : null); setEnd(to ? toDate(to) : null); }, [from, to]);
+  useEffect(() => {
+    if (!open) return;
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, [open]);
+
+  const pick = (d: Date) => {
+    if (!start || end) { setStart(d); setEnd(null); return; }        // begin a new range
+    if (d < start) { setStart(d); setEnd(null); return; }             // clicked before start → restart
+    setEnd(d); onChange(fmt(start), fmt(d)); setOpen(false);          // complete range
+  };
+  const shift = (n: number) => setView(({ y, m }) => { const d = new Date(y, m + n, 1); return { y: d.getFullYear(), m: d.getMonth() }; });
+  const next = new Date(view.y, view.m + 1, 1);
+  const label = from && to ? `${fmtShort(from)} – ${fmtShort(to)}` : "Pick date range";
+
+  return (
+    <div className="date-range" ref={ref}>
+      <button type="button" className="dr-btn" onClick={() => setOpen((o) => !o)}>📅 {label}</button>
+      {open && (
+        <div className="dr-pop" onMouseLeave={() => setHover(null)}>
+          <button type="button" className="dr-arrow dr-prev" onClick={() => shift(-1)}>‹</button>
+          <button type="button" className="dr-arrow dr-nextb" onClick={() => shift(1)}>›</button>
+          <div className="dr-months">
+            <MonthGrid year={view.y} month={view.m} start={start} end={end} hover={hover} onPick={pick} onHover={setHover} />
+            <MonthGrid year={next.getFullYear()} month={next.getMonth()} start={start} end={end} hover={hover} onPick={pick} onHover={setHover} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ---- multi-store checkbox dropdown ----
 function StorePicker({ stores, value, onChange }: { stores: Store[]; value: string[]; onChange: (v: string[]) => void }) {
   const [open, setOpen] = useState(false);
@@ -186,10 +265,9 @@ export default function ReportsPanel() {
             </select>
           </label>
           {preset === "custom" && (
-            <>
-              <label>From <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} /></label>
-              <label>To <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} /></label>
-            </>
+            <label>Dates
+              <DateRangePicker from={customFrom} to={customTo} onChange={(f, t) => { setCustomFrom(f); setCustomTo(t); }} />
+            </label>
           )}
           <label>Stores
             <StorePicker stores={storesQuery.data?.stores ?? []} value={stores} onChange={setStores} />

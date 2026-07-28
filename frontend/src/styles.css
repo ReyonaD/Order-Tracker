@@ -916,3 +916,23 @@ a:hover { text-decoration: underline; }
 .chart-line { fill: none; stroke: #0969da; stroke-width: 2; vector-effect: non-scaling-stroke; }
 .chart-dot { fill: #0969da; }
 @media print { .chart-head select { display: none; } }
+
+/* Reports date-range picker (Shopify-style two-month calendar) */
+.date-range { position: relative; }
+.dr-btn { font-size: 13px; padding: 6px 10px; border: 1px solid #d0d7de; border-radius: 7px; background: #fff; cursor: pointer; white-space: nowrap; text-transform: none; letter-spacing: normal; font-weight: 500; }
+.dr-btn:hover { border-color: #0969da; }
+.dr-pop { position: absolute; z-index: 60; top: 40px; left: 0; background: #fff; border: 1px solid #d0d7de; border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,0.18); padding: 14px 16px; }
+.dr-pop, .dr-pop * { text-transform: none; letter-spacing: normal; }
+.dr-arrow { position: absolute; top: 12px; border: none; background: none; font-size: 20px; line-height: 1; color: #57606a; cursor: pointer; padding: 2px 8px; border-radius: 6px; }
+.dr-arrow:hover { background: #f0f3f6; color: #0969da; }
+.dr-prev { left: 12px; }
+.dr-nextb { right: 12px; }
+.dr-months { display: flex; gap: 22px; }
+.dp-month { width: 210px; }
+.dp-mlabel { text-align: center; font-weight: 700; font-size: 13px; margin-bottom: 8px; color: #1f2328; }
+.dp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; }
+.dp-dow { text-align: center; font-size: 11px; color: #8b949e; font-weight: 600; padding-bottom: 4px; }
+.dp-day { border: none; background: none; cursor: pointer; font-size: 12.5px; color: #1f2328; height: 28px; border-radius: 6px; padding: 0; }
+.dp-day:hover { background: #eaeef2; }
+.dp-in { background: #ddeafd; border-radius: 0; }
+.dp-edge { background: #0969da !important; color: #fff !important; border-radius: 6px; font-weight: 600; }
