@@ -20,6 +20,31 @@ integrationRouter.get("/ping", checkKey, (_req, res) => {
   res.json({ status: "ok" });
 });
 
+// Lookup an order's print status by code — used by the agent to warn about a
+// duplicate print ("this file was already printed by Machine/Operator").
+integrationRouter.get("/order-status", checkKey, async (req, res) => {
+  const raw = String(req.query.code || "").trim();
+  if (!raw) { res.status(400).json({ status: "error", message: "code required" }); return; }
+  const code = raw.replace(/^#/, "").toUpperCase();
+  const order = await prisma.order.findFirst({
+    where: {
+      OR: [
+        { orderName: { equals: `#${code}`, mode: "insensitive" } },
+        { orderName: { equals: code, mode: "insensitive" } },
+      ],
+    },
+    select: { orderName: true, printStatus: true, machineName: true, machinistName: true },
+  });
+  if (!order) { res.json({ status: "success", found: false, code }); return; }
+  res.json({
+    status: "success", found: true, code, orderName: order.orderName,
+    printed: (order.printStatus || "").toLowerCase() === "printed",
+    printStatus: order.printStatus || "",
+    machine: order.machineName || "",
+    operator: order.machinistName || "",
+  });
+});
+
 const printSchema = z.object({
   orderCode: z.string().min(1), // e.g. "IN3300" or "#IN3300"
   machine: z.string().optional(),
