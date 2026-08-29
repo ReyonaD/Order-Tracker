@@ -3,6 +3,7 @@ import { prisma } from "../db";
 import { calculateDeadline } from "./deadline";
 import { determineItemTypes, shouldAutoLoad } from "./itemTypes";
 import { resolveShipping } from "./shipping";
+import { orderSheetValues } from "./sheetCategories";
 import {
   ShopifyOrderPayload,
   buildOrderUrl,
@@ -39,6 +40,9 @@ export async function handleOrderCreation(
   });
 
   const itemTypes = determineItemTypes(data.line_items || []);
+  // Precompute the per-category sheet values once, so the Sheets page can sum
+  // stored numbers instead of re-classifying every line item on each open.
+  const categoryMeasures = orderSheetValues(data.line_items || []);
   const orderUrl = buildOrderUrl(store.shopifyIdentifier, orderId);
   // Sample / T-shirt orders don't need a design-file upload, so they're
   // auto-marked "Uploaded" (matches the original sheet behavior on column H).
@@ -68,6 +72,7 @@ export async function handleOrderCreation(
       deadlineHour,
       itemTypes: itemTypes.types,
       lineItems: (data.line_items as object[]) ?? undefined,
+      categoryMeasures,
       totalPrice,
       orderUrl,
       status: "NEW",
@@ -85,6 +90,7 @@ export async function handleOrderCreation(
       deadlineHour,
       itemTypes: itemTypes.types,
       lineItems: (data.line_items as object[]) ?? undefined,
+      categoryMeasures,
       totalPrice,
       orderUrl,
     },

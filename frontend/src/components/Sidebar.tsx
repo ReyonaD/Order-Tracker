@@ -5,16 +5,17 @@ interface Props {
   onSelect: (key: string) => void;
   canReports?: boolean;
   canSheets?: boolean;
+  canStaff?: boolean;
 }
 
 const GROUP_ORDER: ViewDef["group"][] = ["all", "stores", "production", "deadline", "status"];
 
-export default function Sidebar({ activeView, onSelect, canReports, canSheets }: Props) {
+export default function Sidebar({ activeView, onSelect, canReports, canSheets, canStaff }: Props) {
   return (
     <aside className="sidebar">
       <div className="sidebar-brand">Order Tracker</div>
       <nav>
-        {(canReports || canSheets) && (
+        {(canReports || canSheets || canStaff) && (
           <div className="sidebar-group">
             {canReports && (
               <button
@@ -30,6 +31,14 @@ export default function Sidebar({ activeView, onSelect, canReports, canSheets }:
                 onClick={() => onSelect("sheets")}
               >
                 🧾 Sheets
+              </button>
+            )}
+            {canStaff && (
+              <button
+                className={`sidebar-item sidebar-reports ${activeView === "staff" ? "active" : ""}`}
+                onClick={() => onSelect("staff")}
+              >
+                👥 Staff
               </button>
             )}
           </div>

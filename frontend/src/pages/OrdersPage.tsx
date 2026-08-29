@@ -4,14 +4,13 @@ import { Link } from "react-router-dom";
 import { api, qs } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { Dropdowns, FacetSelection, FacetsResponse, FilterCond, OrdersResponse, PermissionsMatrix, Role } from "../types";
-
-const PREVIEW_ROLES: Role[] = ["DESIGNER", "MACHINIST", "CUSTOMER_SERVICE", "VIEWER"];
 import { VIEWS } from "../views";
 import Sidebar from "../components/Sidebar";
 import FacetPanel from "../components/FacetPanel";
 import OrdersTable from "../components/OrdersTable";
 import ReportsPanel from "../components/ReportsPanel";
 import SheetsPanel from "../components/SheetsPanel";
+import StaffPanel from "../components/StaffPanel";
 
 export default function OrdersPage() {
   const { user, logout } = useAuth();
@@ -28,9 +27,11 @@ export default function OrdersPage() {
 
   const isReports = activeView === "reports";
   const isSheets = activeView === "sheets";
-  const isPanel = isReports || isSheets;
+  const isStaff = activeView === "staff";
+  const isPanel = isReports || isSheets || isStaff;
   const canReports = user?.role === "ADMIN" || !!user?.canViewReports;
   const canSheets = user?.role === "ADMIN" || !!user?.canViewSheets;
+  const canStaff = user?.role === "ADMIN" || !!user?.canViewStaff;
   const view = useMemo(() => VIEWS.find((v) => v.key === activeView) ?? VIEWS[0], [activeView]);
 
   // Single-store views break the facet down by pickup/shipping; multi-store views by store.
@@ -79,6 +80,8 @@ export default function OrdersPage() {
     staleTime: 5 * 60 * 1000,
   });
   const permissions = permsQuery.data?.permissions;
+  // Roles an admin can preview = every non-admin role in the matrix (incl. custom).
+  const previewRoles = permissions ? Object.keys(permissions) : [];
 
   // Admins can preview the app as another role (see what that role sees/edits).
   const isAdmin = user?.role === "ADMIN";
@@ -95,6 +98,7 @@ export default function OrdersPage() {
         activeView={activeView}
         canReports={canReports}
         canSheets={canSheets}
+        canStaff={canStaff}
         onSelect={(k) => {
           setActiveView(k);
           setFacet(emptyFacet);
@@ -136,7 +140,7 @@ export default function OrdersPage() {
 
       <div className="main">
         <header className="topbar">
-          <div className="topbar-title">{isReports ? "Reports" : isSheets ? "Sheets" : view.label}</div>
+          <div className="topbar-title">{isReports ? "Reports" : isSheets ? "Sheets" : isStaff ? "Staff" : view.label}</div>
           {!isPanel && (
             <>
               <input
@@ -169,7 +173,7 @@ export default function OrdersPage() {
               👁 View as
               <select value={previewRole} onChange={(e) => setPreviewRole(e.target.value)}>
                 <option value="">Admin (me)</option>
-                {PREVIEW_ROLES.map((r) => (
+                {previewRoles.map((r) => (
                   <option key={r} value={r}>{r.replace("_", " ")}</option>
                 ))}
               </select>
@@ -200,6 +204,8 @@ export default function OrdersPage() {
           <ReportsPanel />
         ) : isSheets ? (
           <SheetsPanel />
+        ) : isStaff ? (
+          <StaffPanel />
         ) : (
           <>
             <div className="table-wrap">

@@ -11,12 +11,21 @@ export function itemColor(types: string[]): string | undefined {
   return types.length === 1 ? ITEM_COLORS[types[0]] : undefined;
 }
 
-function sameDay(a: Date, b: Date): boolean {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  );
+// Deadlines are always shown in the business timezone (Texas / Central), so a
+// viewer in India sees the exact same "Today/Tomorrow" as one in Texas — the
+// day is never computed from the browser's local timezone.
+const BUSINESS_TZ = "America/Chicago";
+
+// Calendar date (YYYY-MM-DD) of an instant, in the business timezone.
+function ymdInTz(d: Date): string {
+  return d.toLocaleDateString("en-CA", { timeZone: BUSINESS_TZ });
+}
+// Shift a YYYY-MM-DD string by n calendar days.
+function shiftYmd(ymd: string, n: number): string {
+  const [y, m, day] = ymd.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, day));
+  dt.setUTCDate(dt.getUTCDate() + n);
+  return dt.toISOString().slice(0, 10);
 }
 
 const hourLabel = (h: number) => {
@@ -27,15 +36,13 @@ const hourLabel = (h: number) => {
 
 // "Today 5 PM" / "Tomorrow 5 PM" / "Jul 18, 5 PM" — replaces the old "Yarin" cron.
 export function formatDeadline(deadlineAt: string, deadlineHour: number): string {
-  const d = new Date(deadlineAt);
-  const now = new Date();
-  const tomorrow = new Date(now);
-  tomorrow.setDate(now.getDate() + 1);
+  const dYmd = ymdInTz(new Date(deadlineAt));
+  const nowYmd = ymdInTz(new Date());
 
   const time = hourLabel(deadlineHour);
-  if (sameDay(d, now)) return `Today ${time}`;
-  if (sameDay(d, tomorrow)) return `Tomorrow ${time}`;
-  return `${d.toLocaleDateString(undefined, { month: "short", day: "numeric" })} ${time}`;
+  if (dYmd === nowYmd) return `Today ${time}`;
+  if (dYmd === shiftYmd(nowYmd, 1)) return `Tomorrow ${time}`;
+  return `${new Date(deadlineAt).toLocaleDateString("en-US", { timeZone: BUSINESS_TZ, month: "short", day: "numeric" })} ${time}`;
 }
 
 // Deadline urgency for row styling: past = overdue, today = due.
@@ -44,7 +51,7 @@ export function deadlineState(deadlineAt: string, status: string): "overdue" | "
   const d = new Date(deadlineAt);
   const now = new Date();
   if (d.getTime() < now.getTime()) return "overdue";
-  if (sameDay(d, now)) return "due";
+  if (ymdInTz(d) === ymdInTz(now)) return "due";
   return "ok";
 }
 

@@ -5,11 +5,18 @@ import { DateTime } from "luxon";
 import { prisma } from "../db";
 import { env } from "../env";
 import { requireAuth, requireSheets } from "../middleware/auth";
-import { CURATED_ORDER, WAREHOUSES, SPLIT_WAREHOUSES, BASE_WAREHOUSE, defForKey, orderCategoryMeasures } from "../services/sheetCategories";
+import { CURATED_ORDER, WAREHOUSES, SPLIT_WAREHOUSES, BASE_WAREHOUSE, defForKey } from "../services/sheetCategories";
 import { fetchWarehouseSplit } from "../services/dtfMonitor";
 
 export const sheetRouter = Router();
 sheetRouter.use(requireAuth, requireSheets);
+
+// Short-TTL cache: /summary recomputes from every order in the range, which is
+// heavy. Reopening the same range within the TTL serves the cached result. Any
+// write (entry edit / pull-split) clears it so edits show up immediately.
+const SUMMARY_TTL_MS = 60_000;
+const summaryCache = new Map<string, { at: number; body: unknown }>();
+function clearSheetsCache() { summaryCache.clear(); }
 
 const orderIndex = (key: string) => {
   const i = CURATED_ORDER.indexOf(key);
@@ -36,6 +43,10 @@ sheetRouter.get("/summary", async (req, res) => {
     const f0 = DateTime.fromISO(`${from}-01`, { zone });
     const t0 = DateTime.fromISO(`${to}-01`, { zone });
     if (!f0.isValid || !t0.isValid || t0 < f0) { res.status(400).json({ status: "error", message: "Invalid range" }); return; }
+    const cacheKey = `${from}|${to}`;
+    const hit = summaryCache.get(cacheKey);
+    if (hit && Date.now() - hit.at < SUMMARY_TTL_MS) { res.json(hit.body); return; }
+
     const months = listMonths(from, to, zone);
     const editable = months.length === 1; // only single-month view can be edited
     const rangeStart = f0.startOf("month").toJSDate();
@@ -43,10 +54,13 @@ sheetRouter.get("/summary", async (req, res) => {
 
     const stores = await prisma.store.findMany({ where: { active: true }, orderBy: { code: "asc" }, select: { code: true, name: true } });
 
-    // auto value per month per store per category key
+    // auto value per month per store per category key. Uses the precomputed
+    // Order.categoryMeasures ({categoryKey: value}) instead of re-parsing and
+    // re-classifying line items — a fraction of the data and CPU. Rebuild each
+    // category def from its key with defForKey().
     const orders = await prisma.order.findMany({
       where: { orderDate: { gte: rangeStart, lt: rangeEnd }, status: { not: "CANCELLED" } },
-      select: { storeCode: true, orderDate: true, lineItems: true },
+      select: { storeCode: true, orderDate: true, categoryMeasures: true },
     });
     const defs = new Map<string, ReturnType<typeof defForKey>>();
     const auto = new Map<string, Map<string, Record<string, number>>>(); // month -> store -> key -> value
@@ -54,9 +68,10 @@ sheetRouter.get("/summary", async (req, res) => {
       const mm = DateTime.fromJSDate(o.orderDate).setZone(zone).toFormat("yyyy-MM");
       const bym = auto.get(mm) || new Map<string, Record<string, number>>();
       const a = bym.get(o.storeCode) || {};
-      for (const [key, v] of Object.entries(orderCategoryMeasures(o.lineItems))) {
-        defs.set(key, v.def);
-        a[key] = (a[key] || 0) + (v.def.kind === "inches" ? v.inches : v.units);
+      const cm = (o.categoryMeasures as Record<string, number> | null) || {};
+      for (const [key, val] of Object.entries(cm)) {
+        if (!defs.has(key)) defs.set(key, defForKey(key));
+        a[key] = (a[key] || 0) + val;
       }
       bym.set(o.storeCode, a); auto.set(mm, bym);
     }
@@ -128,13 +143,15 @@ sheetRouter.get("/summary", async (req, res) => {
       return { code: s.code, name: s.name, cells };
     });
 
-    res.json({
+    const body = {
       status: "success",
       month: editable ? months[0] : `${from} … ${to}`, from, to, editable,
       warehouses, splitWarehouses: visibleSplit,
       allWarehouses: WAREHOUSES, allSplitWarehouses: SPLIT_WAREHOUSES,
       categories, rows,
-    });
+    };
+    summaryCache.set(cacheKey, { at: Date.now(), body });
+    res.json(body);
   } catch (e) {
     res.status(500).json({ status: "error", message: e instanceof Error ? e.message : "Sheets failed" });
   }
@@ -172,6 +189,7 @@ sheetRouter.post("/pull-split", async (req, res) => {
         updated++;
       }
     }
+    clearSheetsCache();
     res.json({ status: "success", month, updated });
   } catch (e) {
     res.status(502).json({ status: "error", message: e instanceof Error ? e.message : "Pull failed" });
@@ -191,5 +209,6 @@ sheetRouter.put("/entry", async (req, res) => {
     create: { month, storeCode, type, ...data },
     update: data,
   });
+  clearSheetsCache();
   res.json({ status: "success", entry: row });
 });

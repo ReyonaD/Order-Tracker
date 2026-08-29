@@ -1,13 +1,12 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-import { Role } from "@prisma/client";
 import { env } from "../env";
 import { prisma } from "../db";
 
 export interface AuthUser {
   id: string;
   email: string;
-  role: Role;
+  role: string;
 }
 
 declare global {
@@ -77,8 +76,24 @@ export async function requireSheets(req: Request, res: Response, next: NextFunct
   next();
 }
 
+/** Require the user to have Staff access (admins always do; others need the
+ *  canViewStaff flag). */
+export async function requireStaff(req: Request, res: Response, next: NextFunction): Promise<void> {
+  if (!req.user) {
+    res.status(401).json({ status: "error", message: "Not authenticated" });
+    return;
+  }
+  if (req.user.role === "ADMIN") { next(); return; }
+  const u = await prisma.user.findUnique({ where: { id: req.user.id }, select: { canViewStaff: true } });
+  if (!u?.canViewStaff) {
+    res.status(403).json({ status: "error", message: "Staff access required" });
+    return;
+  }
+  next();
+}
+
 /** Require the authenticated user to have one of the given roles. */
-export function requireRole(...roles: Role[]) {
+export function requireRole(...roles: string[]) {
   return (req: Request, res: Response, next: NextFunction): void => {
     if (!req.user) {
       res.status(401).json({ status: "error", message: "Not authenticated" });

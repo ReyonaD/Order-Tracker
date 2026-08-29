@@ -29,7 +29,7 @@ authRouter.post("/login", async (req, res) => {
   res.json({
     status: "success",
     token,
-    user: { id: user.id, email: user.email, name: user.name, role: user.role, canViewReports: user.canViewReports, canViewSheets: user.canViewSheets },
+    user: { id: user.id, email: user.email, name: user.name, role: user.role, canViewReports: user.canViewReports, canViewSheets: user.canViewSheets, canViewStaff: user.canViewStaff },
   });
 });
 
@@ -37,7 +37,7 @@ authRouter.post("/login", async (req, res) => {
 authRouter.get("/me", requireAuth, async (req, res) => {
   const user = await prisma.user.findUnique({
     where: { id: req.user!.id },
-    select: { id: true, email: true, name: true, role: true, active: true, canViewReports: true, canViewSheets: true },
+    select: { id: true, email: true, name: true, role: true, active: true, canViewReports: true, canViewSheets: true, canViewStaff: true },
   });
   if (!user) {
     res.status(404).json({ status: "error", message: "User not found" });

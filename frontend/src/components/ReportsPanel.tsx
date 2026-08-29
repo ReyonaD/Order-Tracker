@@ -136,7 +136,7 @@ function MonthGrid({ year, month, start, end, hover, onPick, onHover }: {
   );
 }
 
-function DateRangePicker({ from, to, onChange }: { from: string; to: string; onChange: (f: string, t: string) => void }) {
+export function DateRangePicker({ from, to, onChange }: { from: string; to: string; onChange: (f: string, t: string) => void }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const [view, setView] = useState(() => { const d = toDate(from || fmt(new Date())); return { y: d.getFullYear(), m: d.getMonth() }; });
@@ -179,7 +179,7 @@ function DateRangePicker({ from, to, onChange }: { from: string; to: string; onC
 }
 
 // ---- multi-store checkbox dropdown ----
-function StorePicker({ stores, value, onChange }: { stores: Store[]; value: string[]; onChange: (v: string[]) => void }) {
+export function StorePicker({ stores, value, onChange }: { stores: Store[]; value: string[]; onChange: (v: string[]) => void }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {

@@ -1,4 +1,5 @@
-export type Role = "ADMIN" | "DESIGNER" | "MACHINIST" | "CUSTOMER_SERVICE" | "VIEWER";
+// Role is a free-form string: "ADMIN" plus built-in and admin-defined custom roles.
+export type Role = string;
 export type OrderStatus = "NEW" | "FULFILLED" | "CANCELLED";
 
 export interface User {
@@ -8,6 +9,7 @@ export interface User {
   role: Role;
   canViewReports?: boolean;
   canViewSheets?: boolean;
+  canViewStaff?: boolean;
 }
 
 export interface StoreRef {
@@ -97,6 +99,7 @@ export interface AdminUser {
   active: boolean;
   canViewReports: boolean;
   canViewSheets: boolean;
+  canViewStaff: boolean;
   createdAt: string;
 }
 
@@ -109,6 +112,18 @@ export interface SheetsResponse {
   warehouses: string[]; splitWarehouses: string[];
   allWarehouses: string[]; allSplitWarehouses: string[];
   categories: SheetCategoryDef[]; rows: SheetRow[];
+}
+
+// Staff (per-designer uploads + per-operator prints)
+export interface StaffRow { name: string; files: number; units: number; inches: number }
+export interface StaffTotals { files: number; units: number; inches: number }
+export interface StaffResponse {
+  status: string;
+  meta: { from: string; to: string; stores: string[] };
+  designers: StaffRow[];
+  operators: StaffRow[];
+  machines: StaffRow[];
+  totals: { designers: StaffTotals; operators: StaffTotals };
 }
 
 // Reports

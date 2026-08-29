@@ -72,6 +72,18 @@ export function defForKey(key: string): SheetCategory {
   return CURATED[key] || { key, label: key, kind: "count", split: false };
 }
 
+// Flat {categoryKey: value} for storing on the Order — value is inches for
+// inch-kind categories, units for count-kind. This is exactly what the Sheets
+// summary accumulates, so it can sum stored numbers instead of re-classifying
+// line items on every request. Rebuild the category def with defForKey(key).
+export function orderSheetValues(lineItems: unknown): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const [key, v] of Object.entries(orderCategoryMeasures(lineItems))) {
+    out[key] = v.def.kind === "inches" ? v.inches : v.units;
+  }
+  return out;
+}
+
 // Per-order measures grouped by category key: inches + units, with the def.
 export function orderCategoryMeasures(lineItems: unknown): Record<string, { def: SheetCategory; inches: number; units: number }> {
   const arr = Array.isArray(lineItems) ? (lineItems as LineItem[]) : [];

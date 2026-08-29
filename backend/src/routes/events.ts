@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "../db";
 import { requireAuth, requireRole } from "../middleware/auth";
@@ -12,6 +13,7 @@ eventRouter.use(requireAuth, requireRole("ADMIN"));
 // List recent webhook events (optionally filter by status). Counts help spot misses.
 const listQuery = z.object({
   status: z.enum(["received", "processed", "unmatched", "error"]).optional(),
+  q: z.string().trim().optional(), // search by order name (e.g. "P24878")
   page: z.coerce.number().min(1).default(1),
   pageSize: z.coerce.number().min(1).max(200).default(50),
 });
@@ -22,8 +24,10 @@ eventRouter.get("/", async (req, res) => {
     res.status(400).json({ status: "error", message: "Invalid query" });
     return;
   }
-  const { status, page, pageSize } = parsed.data;
-  const where = status ? { status } : {};
+  const { status, q, page, pageSize } = parsed.data;
+  const where: Prisma.WebhookEventWhereInput = {};
+  if (status) where.status = status;
+  if (q) where.orderName = { contains: q, mode: "insensitive" };
 
   const [total, events, counts] = await Promise.all([
     prisma.webhookEvent.count({ where }),
@@ -43,7 +47,18 @@ eventRouter.get("/", async (req, res) => {
   const byStatus: Record<string, number> = {};
   for (const c of counts) byStatus[c.status] = c._count;
 
-  res.json({ status: "success", total, page, pageSize, events, counts: byStatus });
+  // Pull the Shopify order creation time (payload.created_at) for just this page's
+  // rows via a light raw query — avoids transferring the full payload JSON blobs.
+  const ids = events.map((e) => e.id);
+  const createdRows = ids.length
+    ? await prisma.$queryRaw<{ id: string; created: string | null }[]>(
+        Prisma.sql`SELECT id, payload->>'created_at' AS created FROM "WebhookEvent" WHERE id IN (${Prisma.join(ids)})`
+      )
+    : [];
+  const createdMap = new Map(createdRows.map((r) => [r.id, r.created]));
+  const eventsOut = events.map((e) => ({ ...e, shopifyCreatedAt: createdMap.get(e.id) ?? null }));
+
+  res.json({ status: "success", total, page, pageSize, events: eventsOut, counts: byStatus });
 });
 
 // Replay a stored event through the handlers (e.g. after fixing a bug, or once the

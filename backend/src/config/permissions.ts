@@ -1,7 +1,15 @@
 import { prisma } from "../db";
 
 // Role-based column permissions. ADMIN is always full access and is NOT in the matrix.
-export const CONFIG_ROLES = ["DESIGNER", "MACHINIST", "CUSTOMER_SERVICE", "VIEWER"] as const;
+// These are the built-in roles; admins can add custom roles on top (stored in the
+// same matrix). Built-in roles can't be deleted.
+export const BUILTIN_ROLES = ["DESIGNER", "MACHINIST", "CUSTOMER_SERVICE", "VIEWER"] as const;
+
+// A valid role name: UPPER_SNAKE, starts with a letter, 2-30 chars. "ADMIN" is reserved.
+export const ROLE_NAME_RE = /^[A-Z][A-Z0-9_]{1,29}$/;
+export function normalizeRoleName(raw: string): string {
+  return String(raw || "").trim().toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+}
 
 // Columns that appear in the permission matrix (orderName is always visible → excluded).
 export const PERMISSION_COLUMNS = [
@@ -53,8 +61,12 @@ export const DEFAULT_PERMISSIONS: Record<string, RolePerms> = {
 export function mergePermissions(stored: unknown): Record<string, RolePerms> {
   const s = (stored as Record<string, RolePerms> | null) || {};
   const out: Record<string, RolePerms> = {};
-  for (const role of CONFIG_ROLES) {
-    const base = DEFAULT_PERMISSIONS[role];
+  // Roles = built-ins ∪ any custom roles present in the stored matrix (never ADMIN).
+  const roleNames = new Set<string>([...BUILTIN_ROLES, ...Object.keys(s)]);
+  roleNames.delete("ADMIN");
+  for (const role of roleNames) {
+    // Custom roles default to "view everything, edit nothing" until tuned.
+    const base = DEFAULT_PERMISSIONS[role] || build([]);
     const sr = s[role] || {};
     const merged: RolePerms = {};
     for (const k of PERMISSION_COLUMNS) {

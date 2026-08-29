@@ -4,7 +4,8 @@ import { api } from "../../api/client";
 import { PermissionsMatrix } from "../../types";
 import { COLUMN_META, PERMISSION_COLUMNS } from "../../columns";
 
-const ROLES = ["DESIGNER", "MACHINIST", "CUSTOMER_SERVICE", "VIEWER"] as const;
+// Built-in roles can't be deleted (mirrors the backend BUILTIN_ROLES).
+const BUILTIN = new Set(["DESIGNER", "MACHINIST", "CUSTOMER_SERVICE", "VIEWER"]);
 const EDITABLE = new Set(COLUMN_META.filter((c) => c.editable).map((c) => c.key));
 const LABEL: Record<string, string> = Object.fromEntries(COLUMN_META.map((c) => [c.key, c.label]));
 
@@ -16,20 +17,37 @@ export default function PermissionsAdmin() {
   });
 
   const [matrix, setMatrix] = useState<PermissionsMatrix | null>(null);
+  const [newRole, setNewRole] = useState("");
   useEffect(() => {
     if (data?.permissions) setMatrix(structuredClone(data.permissions));
   }, [data]);
 
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ["permissions"] });
+    qc.invalidateQueries({ queryKey: ["roles"] });
+  };
+
   const save = useMutation({
     mutationFn: (m: PermissionsMatrix) => api.put("/config/permissions", { permissions: m }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["permissions"] });
-      alert("Permissions saved.");
-    },
+    onSuccess: () => { invalidate(); alert("Permissions saved."); },
     onError: (e) => alert(e instanceof Error ? e.message : "Save failed"),
   });
 
+  const addRole = useMutation({
+    mutationFn: (name: string) => api.post("/config/roles", { name }),
+    onSuccess: () => { setNewRole(""); invalidate(); },
+    onError: (e) => alert(e instanceof Error ? e.message : "Failed to add role"),
+  });
+
+  const delRole = useMutation({
+    mutationFn: (name: string) => api.del(`/config/roles/${encodeURIComponent(name)}`),
+    onSuccess: invalidate,
+    onError: (e) => alert(e instanceof Error ? e.message : "Failed to delete role"),
+  });
+
   if (!matrix) return <div className="admin-section muted">Loading…</div>;
+
+  const roles = Object.keys(matrix);
 
   const setCell = (role: string, col: string, field: "view" | "edit", val: boolean) => {
     setMatrix((prev) => {
@@ -43,6 +61,10 @@ export default function PermissionsAdmin() {
     });
   };
 
+  const removeRole = (name: string) => {
+    if (confirm(`Delete role "${name}"? This can't be undone.`)) delRole.mutate(name);
+  };
+
   return (
     <div className="admin-section">
       <p className="muted">
@@ -50,15 +72,36 @@ export default function PermissionsAdmin() {
         have full access. Turning off “View” also turns off “Edit”. Only editable columns
         (designer/operator/print/etc.) can be edited.
       </p>
+
+      <div className="admin-form-row" style={{ marginBottom: 12 }}>
+        <input
+          placeholder="New role name (e.g. QUALITY_CHECK)"
+          value={newRole}
+          onChange={(e) => setNewRole(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter" && newRole.trim()) addRole.mutate(newRole); }}
+        />
+        <button onClick={() => newRole.trim() && addRole.mutate(newRole)} disabled={addRole.isPending || !newRole.trim()}>
+          + Add role
+        </button>
+      </div>
+
       <table className="admin-table perm-table">
         <thead>
           <tr>
             <th>Column</th>
-            {ROLES.map((r) => <th key={r} colSpan={2} className="perm-role">{r}</th>)}
+            {roles.map((r) => (
+              <th key={r} colSpan={2} className="perm-role">
+                {r}
+                {!BUILTIN.has(r) && (
+                  <button className="link-btn danger" title="Delete this custom role"
+                    style={{ marginLeft: 6 }} onClick={() => removeRole(r)} disabled={delRole.isPending}>✕</button>
+                )}
+              </th>
+            ))}
           </tr>
           <tr>
             <th></th>
-            {ROLES.map((r) => (
+            {roles.map((r) => (
               <Fragment key={r}>
                 <th className="perm-sub">View</th>
                 <th className="perm-sub">Edit</th>
@@ -70,7 +113,7 @@ export default function PermissionsAdmin() {
           {PERMISSION_COLUMNS.map((col) => (
             <tr key={col}>
               <td>{LABEL[col]}</td>
-              {ROLES.map((role) => {
+              {roles.map((role) => {
                 const cell = matrix[role]?.[col] ?? { view: true, edit: false };
                 return (
                   <Fragment key={role}>

@@ -13,25 +13,24 @@ datasource db {
 // ---------------------------------------------------------------------------
 // Users & roles
 // ---------------------------------------------------------------------------
-enum Role {
-  ADMIN
-  DESIGNER
-  MACHINIST
-  CUSTOMER_SERVICE
-  VIEWER
-}
+// Role is a free-form string (not an enum) so admins can define custom roles.
+// "ADMIN" is always full-access; every other role is driven by the permission
+// matrix in AppConfig ("rolePermissions"). Built-in roles: DESIGNER, MACHINIST,
+// CUSTOMER_SERVICE, VIEWER.
 
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
   name         String
   passwordHash String
-  role         Role     @default(VIEWER)
+  role         String   @default("VIEWER")
   active       Boolean  @default(true)
   // Grants access to the Reports tab (detailed analytics + PDF export).
   canViewReports Boolean @default(false)
   // Grants access to the Sheets tab (monthly account tracking).
   canViewSheets  Boolean @default(false)
+  // Grants access to the Staff tab (per-designer uploads + per-operator prints).
+  canViewStaff   Boolean @default(false)
   // Per-user UI preferences: current column layout + saved presets (JSON).
   preferences  Json?
   createdAt    DateTime @default(now())
@@ -144,6 +143,10 @@ model Order {
   // --- Items ---
   itemTypes      String[]    // ["T-shirt","Gang Sheet"] etc.
   lineItems      Json?       // raw Shopify line_items for reference
+  // Precomputed per-category sheet values {categoryKey: value} (inches for
+  // inch-kind categories, units for count-kind) — lets Sheets sum stored numbers
+  // instead of re-parsing/re-classifying line items on every open.
+  categoryMeasures Json?
 
   // --- Links / tracking ---
   orderUrl       String      // N: Shopify admin order url ("View Order")
