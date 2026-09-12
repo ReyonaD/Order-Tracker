@@ -214,10 +214,11 @@ model Sheet {
   part         Int       // 1-based part number
   total        Int       @default(1)
   copies       Int       @default(1) // "(2x)" → two physical sheets of this part
-  status       String    // "RIPPED" | "PRINTED"
+  status       String    // "DOWNLOADED" | "RIPPED" | "PRINTED"
   fileName     String?
   machine      String?
   operator     String?
+  downloadedAt DateTime? // agent pulled the file into its hot folder
   rippedAt     DateTime?
   printedAt    DateTime?
   printedCount Int       @default(0) // copies that went through the oven

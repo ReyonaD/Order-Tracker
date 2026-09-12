@@ -57,7 +57,7 @@ const printSchema = z.object({
   printStatus: z.string().default("Printed"),
   // Per-sheet mode (DTF Monitor agent queue). When `part` is present, one Sheet row
   // is upserted and the order's print columns are rolled up from its sheets.
-  stage: z.enum(["ripped", "printed"]).optional(),
+  stage: z.enum(["downloaded", "ripped", "printed"]).optional(),
   part: z.coerce.number().int().min(1).optional(),
   total: z.coerce.number().int().min(1).optional(),
   copies: z.coerce.number().int().min(1).optional(),
@@ -68,7 +68,8 @@ const printSchema = z.object({
 const uniq = (xs: (string | null | undefined)[]) => [...new Set(xs.filter((x): x is string => !!x))];
 
 // Recompute an order's print columns from its Sheet rows:
-//   all parts printed → "Printed"; some → "Printed 2/5"; only RIP'd → "RIP'd 1/5"; none → null.
+//   all parts printed → "Printed"; some → "Printed 2/5"; only RIP'd → "RIP'd 1/5";
+//   only downloaded → "Downloaded 1/5"; none → null.
 // "Printed" (exact) stays the only value the Not-Printed view treats as done, so a
 // partly printed order keeps showing up as work to do.
 async function rollupOrder(orderId: string) {
@@ -77,12 +78,14 @@ async function rollupOrder(orderId: string) {
   const total = Math.max(sheets.length, ...sheets.map((s) => s.total));
   const printed = sheets.filter((s) => s.status === "PRINTED");
   const ripped = sheets.filter((s) => s.status === "RIPPED");
+  const downloaded = sheets.filter((s) => s.status === "DOWNLOADED");
   let printStatus: string | null;
   if (printed.length >= total) printStatus = "Printed";
   else if (printed.length > 0) printStatus = `Printed ${printed.length}/${total}`;
   else if (ripped.length > 0) printStatus = total > 1 ? `RIP'd ${ripped.length}/${total}` : "RIP'd";
+  else if (downloaded.length > 0) printStatus = total > 1 ? `Downloaded ${downloaded.length}/${total}` : "Downloaded";
   else printStatus = null;
-  const src = printed.length > 0 ? printed : ripped; // who printed it, else who RIP'd it
+  const src = printed.length > 0 ? printed : ripped.length > 0 ? ripped : downloaded; // who did the latest stage
   await prisma.order.update({
     where: { id: orderId },
     data: {
@@ -122,21 +125,30 @@ integrationRouter.post("/print", checkKey, async (req, res) => {
   }
 
   if (part) {
-    const status = stage === "printed" || (!stage && printStatus.toLowerCase() === "printed") ? "PRINTED" : "RIPPED";
+    const status =
+      stage === "downloaded" ? "DOWNLOADED"
+      : stage === "printed" || (!stage && printStatus.toLowerCase() === "printed") ? "PRINTED"
+      : "RIPPED";
     const now = new Date();
     for (const o of orders) {
       await prisma.sheet.upsert({
         where: { orderId_part: { orderId: o.id, part } },
         create: {
           orderId: o.id, part, total: total ?? 1, copies: copies ?? 1, status, fileName, machine, operator,
+          downloadedAt: status === "DOWNLOADED" ? now : null,
           rippedAt: status === "RIPPED" ? now : null,
           printedAt: status === "PRINTED" ? now : null,
           printedCount: printedCount ?? (status === "PRINTED" ? (copies ?? 1) : 0),
         },
         update: {
           status, total, copies, fileName, machine, operator,
-          ...(status === "RIPPED" ? { rippedAt: now } : { printedAt: now }),
-          ...(printedCount !== undefined ? { printedCount } : status === "PRINTED" ? { printedCount: copies ?? 1 } : {}),
+          // a fresh download is a (re)start of this sheet: clear the later stages
+          ...(status === "DOWNLOADED" ? { downloadedAt: now, rippedAt: null, printedAt: null, printedCount: 0 }
+            : status === "RIPPED" ? { rippedAt: now }
+            : { printedAt: now }),
+          ...(status !== "DOWNLOADED"
+            ? (printedCount !== undefined ? { printedCount } : status === "PRINTED" ? { printedCount: copies ?? 1 } : {})
+            : {}),
         },
       });
       await rollupOrder(o.id);

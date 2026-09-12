@@ -114,7 +114,15 @@ Two modes on the same endpoint (`backend/src/routes/integrations.ts`, `X-Api-Key
   `RIP'd 1/5`; machineName/machinistName = comma-joined contributors. Only the exact value
   `Printed` counts as done (Not-Printed view = `printStatus != 'Printed'`), so a split order
   keeps showing as work until every sheet went through the oven. `GET /integrations/order-status`
-  returns the sheets too. Chase list / thresholds are the planned next step on top of this.
+  returns the sheets too. Stages: `downloaded` (→ `Downloaded n/N`, clears later stages = restart
+  of that sheet), `ripped`, `printed`.
+- **Chase list** (`backend/src/routes/chase.ts` → `GET /chase`, `frontend/src/components/ChasePanel.tsx`,
+  sidebar "🔥 Chase list", visible to everyone): orders with `status NEW`, deadline in
+  [today−3d, end of today] (Texas) and `printStatus != Printed`, each with the stage it is stuck
+  in (`not_started` / `downloaded` / `ripped` / `partial`), who/where, and a flag: overdue → late;
+  not started & due ≤ 2 h → warn; Downloaded 30/60 min, RIP'd 45/90, partial 45/90 → warn/late.
+  Sorted late → warn → ok, refetches every 30 s, "Day is clean" when empty. Thresholds are
+  constants in chase.ts for now.
 
 ## Delivery (planned, mostly not built here)
 PICASSO local delivery uses Shopify native Local Delivery + the EasyRoutes app, NOT a custom

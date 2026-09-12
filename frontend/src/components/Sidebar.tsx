@@ -16,8 +16,14 @@ export default function Sidebar({ activeView, onSelect, canReports, canSheets, c
     <aside className="sidebar">
       <div className="sidebar-brand">Order Tracker</div>
       <nav>
-        {(canReports || canSheets || canStaff || canFinance) && (
-          <div className="sidebar-group">
+        <div className="sidebar-group">
+            {/* Chase list is production-critical: everyone sees it. */}
+            <button
+              className={`sidebar-item sidebar-reports ${activeView === "chase" ? "active" : ""}`}
+              onClick={() => onSelect("chase")}
+            >
+              🔥 Chase list
+            </button>
             {canReports && (
               <button
                 className={`sidebar-item sidebar-reports ${activeView === "reports" ? "active" : ""}`}
@@ -50,8 +56,7 @@ export default function Sidebar({ activeView, onSelect, canReports, canSheets, c
                 💰 Finance
               </button>
             )}
-          </div>
-        )}
+        </div>
         {GROUP_ORDER.map((group) => {
           const items = VIEWS.filter((v) => v.group === group);
           if (items.length === 0) return null;
