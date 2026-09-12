@@ -217,7 +217,7 @@ export default function OrdersPage() {
         ) : isFinance ? (
           <FinancePanel />
         ) : isChase ? (
-          <ChasePanel />
+          <ChasePanel isAdmin={user?.role === "ADMIN"} />
         ) : (
           <>
             <div className="table-wrap">

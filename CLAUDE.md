@@ -121,8 +121,13 @@ Two modes on the same endpoint (`backend/src/routes/integrations.ts`, `X-Api-Key
   [today−3d, end of today] (Texas) and `printStatus != Printed`, each with the stage it is stuck
   in (`not_started` / `downloaded` / `ripped` / `partial`), who/where, and a flag: overdue → late;
   not started & due ≤ 2 h → warn; Downloaded 30/60 min, RIP'd 45/90, partial 45/90 → warn/late.
-  Sorted late → warn → ok, refetches every 30 s, "Day is clean" when empty. Thresholds are
-  constants in chase.ts for now.
+  Sorted late → warn → ok, refetches every 30 s, "Day is clean" when empty.
+  **Settings** (panel ⚙, AppConfig `chaseSettings`, `GET/PUT /chase/settings`, PUT = ADMIN):
+  `lookbackDays` (default **0 = today only** — prod has ~40 unmarked orders/day and ~130 in the
+  previous 3 days, all of which show as late if the window is widened), `notStartedWarnMin`,
+  and `[warn, late]` minutes for downloaded / ripped / partial. Rows have **"Mark printed"**
+  (= `PATCH /orders/:id {printStatus:"Printed"}`, same role permissions as the table) to clear
+  orders that were printed but never recorded by the old flow.
 
 ## Delivery (planned, mostly not built here)
 PICASSO local delivery uses Shopify native Local Delivery + the EasyRoutes app, NOT a custom
