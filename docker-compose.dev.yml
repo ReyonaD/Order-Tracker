@@ -1,0 +1,19 @@
+# Local dev database ONLY. Isolated from Railway/production.
+# Start:  docker compose -f docker-compose.dev.yml up -d
+# Stop:   docker compose -f docker-compose.dev.yml down       (add -v to also wipe data)
+# Matches backend/.env  ->  postgres://postgres:pg@localhost:5544/order_tracker
+services:
+  db:
+    image: postgres:18
+    container_name: ot-dev-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: pg
+      POSTGRES_DB: order_tracker
+    ports:
+      - "5544:5432"
+    volumes:
+      - ot_dev_pgdata:/var/lib/postgresql
+volumes:
+  ot_dev_pgdata:

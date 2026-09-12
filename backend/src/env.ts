@@ -23,4 +23,7 @@ export const env = {
   // DTF Monitor (production site) — for pulling warehouse split percentages.
   dtfMonitorUrl: process.env.DTF_MONITOR_URL || "",
   dtfMonitorApiKey: process.env.DTF_MONITOR_API_KEY || "",
+  // Password required to GRANT a user Finance access (so not every admin can
+  // self-enable it). Set FINANCE_UNLOCK_PASSWORD in the host env (Railway).
+  financeUnlockPassword: process.env.FINANCE_UNLOCK_PASSWORD || "",
 };

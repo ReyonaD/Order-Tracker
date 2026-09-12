@@ -56,11 +56,12 @@ export function classifyWebhook(
 ): "cancellation" | "fulfillment" | "creation" {
   const t = (topic || "").toLowerCase();
 
+  // Only a real cancellation counts. A "voided" payment (authorization released)
+  // does NOT cancel the order — those orders are still real and must be created.
   const isCancellation =
     t.includes("orders/cancelled") ||
     !!data.cancelled_at ||
-    !!data.cancel_reason ||
-    data.financial_status === "voided";
+    !!data.cancel_reason;
   if (isCancellation) return "cancellation";
 
   const isFulfillment =

@@ -46,6 +46,11 @@ const MESQUITE_WHERE: Prisma.OrderWhereInput = {
   storeCode: "PROMO",
   shippingMethod: { contains: "Mesquite", mode: "insensitive" },
 };
+// Detroit Production: PICASSO orders picked up at the Detroit satellite.
+const DETROIT_WHERE: Prisma.OrderWhereInput = {
+  storeCode: "PICASSO",
+  shippingMethod: { contains: "Detroit", mode: "insensitive" },
+};
 
 function viewWhere(view: string): Prisma.OrderWhereInput {
   switch (view) {
@@ -58,6 +63,9 @@ function viewWhere(view: string): Prisma.OrderWhereInput {
     // Mesquite Production: PROMO orders picked up in Mesquite.
     case "mesquite":
       return MESQUITE_WHERE;
+    // Detroit Production: PICASSO orders picked up at the Detroit satellite.
+    case "detroit":
+      return DETROIT_WHERE;
     // Richardson Production: everything except Fort Worth, Houston and Mesquite.
     case "richardson":
       return {

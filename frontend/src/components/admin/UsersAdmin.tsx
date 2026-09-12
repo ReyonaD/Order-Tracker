@@ -18,14 +18,15 @@ export default function UsersAdmin() {
   const [canViewReports, setCanViewReports] = useState(false);
   const [canViewSheets, setCanViewSheets] = useState(false);
   const [canViewStaff, setCanViewStaff] = useState(false);
+  const [canViewFinance, setCanViewFinance] = useState(false);
   const [error, setError] = useState("");
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["users"] });
 
   const create = useMutation({
-    mutationFn: () => api.post("/users", { email, name, password, role, canViewReports, canViewSheets, canViewStaff }),
+    mutationFn: (financePassword?: string) => api.post("/users", { email, name, password, role, canViewReports, canViewSheets, canViewStaff, canViewFinance, financePassword }),
     onSuccess: () => {
-      setEmail(""); setName(""); setPassword(""); setRole("DESIGNER"); setCanViewReports(false); setCanViewSheets(false); setCanViewStaff(false); setError("");
+      setEmail(""); setName(""); setPassword(""); setRole("DESIGNER"); setCanViewReports(false); setCanViewSheets(false); setCanViewStaff(false); setCanViewFinance(false); setError("");
       invalidate();
     },
     onError: (e) => setError(e instanceof Error ? e.message : "Failed"),
@@ -43,7 +44,17 @@ export default function UsersAdmin() {
     onError: (e) => alert(e instanceof Error ? e.message : "Failed"),
   });
 
-  const onSubmit = (e: FormEvent) => { e.preventDefault(); create.mutate(); };
+  const onSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    let fp: string | undefined;
+    if (canViewFinance) { const p = prompt("Finance access password (required to grant Finance):"); if (p === null) return; fp = p; }
+    create.mutate(fp);
+  };
+  // Toggle a user's Finance flag; enabling it prompts for the password.
+  const toggleFinance = (id: string, on: boolean) => {
+    if (on) { const p = prompt("Finance access password (required to grant Finance):"); if (p === null) return; patch.mutate({ id, data: { canViewFinance: true, financePassword: p } }); }
+    else patch.mutate({ id, data: { canViewFinance: false } });
+  };
 
   const removeUser = (u: AdminUser) => {
     if (confirm(`Delete ${u.name} (${u.email})? This cannot be undone.`)) del.mutate(u.id);
@@ -75,6 +86,9 @@ export default function UsersAdmin() {
           <label className="inline-check" title="Grant access to the Staff tab">
             <input type="checkbox" checked={canViewStaff} onChange={(e) => setCanViewStaff(e.target.checked)} /> Staff
           </label>
+          <label className="inline-check" title="Grant access to the Finance tab">
+            <input type="checkbox" checked={canViewFinance} onChange={(e) => setCanViewFinance(e.target.checked)} /> Finance
+          </label>
           <button type="submit" disabled={create.isPending}>Add</button>
         </div>
         {error && <div className="login-error">{error}</div>}
@@ -82,7 +96,7 @@ export default function UsersAdmin() {
 
       <table className="admin-table">
         <thead>
-          <tr><th>Name</th><th>Email</th><th>Role</th><th>Active</th><th>Reports</th><th>Sheets</th><th>Staff</th><th>Actions</th></tr>
+          <tr><th>Name</th><th>Email</th><th>Role</th><th>Active</th><th>Reports</th><th>Sheets</th><th>Staff</th><th>Finance</th><th>Actions</th></tr>
         </thead>
         <tbody>
           {(data?.users ?? []).map((u) => (
@@ -108,6 +122,10 @@ export default function UsersAdmin() {
               <td>
                 <input type="checkbox" checked={u.canViewStaff} title="Staff tab access"
                   onChange={(e) => patch.mutate({ id: u.id, data: { canViewStaff: e.target.checked } })} />
+              </td>
+              <td>
+                <input type="checkbox" checked={u.canViewFinance} title="Finance tab access (password-protected)"
+                  onChange={(e) => toggleFinance(u.id, e.target.checked)} />
               </td>
               <td>
                 <button className="link-btn" onClick={() => resetPassword(u)}>Reset password</button>

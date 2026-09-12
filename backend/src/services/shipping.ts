@@ -50,8 +50,13 @@ export function resolveShipping(
       else if (lower.includes("mesquite")) displayShippingMethod = "Mesquite Pickup";
       else if (lower.includes("richardson")) displayShippingMethod = "Richardson Pickup";
       else displayShippingMethod = "Pickup";
+    } else if (storeCode === "PICASSO") {
+      // PICASSO pickups: the Detroit satellite ("👕Picasso - Detroit …") is
+      // labelled separately; the main locker / DISARI pickups stay plain "Pick-up".
+      if (lower.includes("detroit")) displayShippingMethod = "Detroit Pick-up";
+      else displayShippingMethod = "Pick-up";
     } else {
-      // All other stores (incl. PICASSO) just show a plain "Pick-up".
+      // All other stores just show a plain "Pick-up".
       displayShippingMethod = "Pick-up";
     }
   } else {

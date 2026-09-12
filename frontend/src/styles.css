@@ -936,3 +936,135 @@ a:hover { text-decoration: underline; }
 .dp-day:hover { background: #eaeef2; }
 .dp-in { background: #ddeafd; border-radius: 0; }
 .dp-edge { background: #0969da !important; color: #fff !important; border-radius: 6px; font-weight: 600; }
+
+/* ── Finance panel ─────────────────────────────────────────────── */
+.finance-panel { padding: 16px 20px; overflow: auto; height: 100%; }
+.fin-toolbar { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; flex-wrap: wrap; }
+.fin-year { height: 32px; border: 1px solid #d0d7de; border-radius: 8px; padding: 0 10px; font-size: 13px; color: #1f2328; background: #fff; }
+.fin-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.fin-tab { height: 32px; padding: 0 14px; border: 1px solid #d0d7de; background: #fff; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; color: #57606a; }
+.fin-tab:hover { background: #f6f8fa; }
+.fin-tab.active { background: #0969da; border-color: #0969da; color: #fff; }
+.fin-months { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 14px; }
+.fin-month { height: 28px; min-width: 42px; padding: 0 8px; border: 1px solid #d0d7de; background: #fff; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; color: #57606a; }
+.fin-month:hover { background: #f6f8fa; }
+.fin-month.active { background: #1f2328; border-color: #1f2328; color: #fff; }
+.fin-statement { max-width: 760px; }
+.fin-title { font-size: 15px; font-weight: 700; color: #1f2328; margin-bottom: 12px; text-transform: uppercase; letter-spacing: .3px; }
+.fin-table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #d0d7de; border-radius: 10px; overflow: hidden; }
+.fin-table th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: #8b949e; font-weight: 700; padding: 10px 14px; background: #f6f8fa; border-bottom: 1px solid #d0d7de; }
+.fin-c-amt { width: 180px; }
+.fin-c-note { width: 260px; }
+.fin-table td { padding: 6px 14px; border-bottom: 1px solid #eaeef2; font-size: 13px; color: #1f2328; vertical-align: middle; }
+.fin-table tr:last-child td { border-bottom: none; }
+.fin-label { font-weight: 500; }
+.fin-label.indent { padding-left: 30px; color: #57606a; font-weight: 400; }
+.fin-strong td { background: #f6f8fa; font-weight: 700; }
+.fin-computed .fin-amt-out { font-weight: 700; }
+.fin-amt-out { font-variant-numeric: tabular-nums; }
+.fin-amt { width: 140px; height: 30px; border: 1px solid #d0d7de; border-radius: 7px; padding: 0 10px; font-size: 13px; text-align: right; font-variant-numeric: tabular-nums; color: #1f2328; }
+.fin-amt:focus { border-color: #0969da; outline: none; }
+.fin-note { width: 100%; height: 30px; border: 1px solid transparent; border-radius: 7px; padding: 0 8px; font-size: 12.5px; color: #57606a; background: transparent; }
+.fin-note:hover { border-color: #eaeef2; }
+.fin-note:focus { border-color: #0969da; background: #fff; outline: none; color: #1f2328; }
+.fin-actions { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
+.fin-save { height: 34px; padding: 0 20px; border: none; border-radius: 8px; background: #1a7f37; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; }
+.fin-save:disabled { background: #d0d7de; color: #8b949e; cursor: default; }
+.fin-meta { font-size: 12px; color: #8b949e; }
+.fin-overview td { text-align: right; font-variant-numeric: tabular-nums; }
+.fin-overview td.fin-label { text-align: left; }
+.fin-overview th { text-align: right; }
+.fin-overview th:first-child { text-align: left; }
+.fin-neg { color: #cf222e; }
+
+/* Finance — memo rows + General (Bilanço) split table */
+.fin-memo td { background: #fbfbfa; color: #8b949e; }
+.fin-memo .fin-label { font-style: italic; }
+.fin-memo .fin-amt { color: #57606a; }
+.fin-general .fin-table { max-width: 900px; }
+.fin-overview th, .fin-overview td { border-right: 1px solid #eaeef2; }
+.fin-overview th:last-child, .fin-overview td:last-child { border-right: none; }
+.fin-split-head { text-align: center !important; background: #fff8dd !important; }
+.fin-overview th { border-bottom: 1px solid #d0d7de; }
+.fin-split-cell { background: #f6f8fa; font-weight: 600; }
+.fin-general .fin-strong td { background: #eef1f4; }
+
+/* Finance — store General sub-tab, custom rows, split editor */
+.fin-month-gen { background: #1f2328; color: #fff; border-color: #1f2328; }
+.fin-month-gen.active { background: #0969da; border-color: #0969da; }
+.fin-section-lbl td { font-size: 10.5px; text-transform: uppercase; letter-spacing: .5px; color: #8b949e; font-weight: 700; padding-top: 12px; }
+.fin-addrow td { padding: 4px 14px 10px; }
+.fin-add { border: 1px dashed #d0d7de; background: #fff; color: #0969da; font-size: 12px; font-weight: 600; padding: 4px 12px; border-radius: 7px; cursor: pointer; }
+.fin-add:hover { background: #f6f8fa; border-color: #0969da; }
+.fin-rowx { border: none; background: none; color: #cf222e; cursor: pointer; font-size: 11px; margin-left: 8px; opacity: .5; }
+.fin-rowx:hover { opacity: 1; }
+.fin-split-editor { max-width: 420px; margin-top: 22px; padding-top: 16px; border-top: 1px solid #eaeef2; }
+.fin-splitedit { border-collapse: collapse; }
+.fin-splitedit td { padding: 4px 8px 4px 0; }
+.fin-pname { height: 30px; border: 1px solid #d0d7de; border-radius: 7px; padding: 0 10px; font-size: 13px; width: 160px; }
+.fin-pct { height: 30px; border: 1px solid #d0d7de; border-radius: 7px; padding: 0 8px; font-size: 13px; width: 64px; text-align: right; }
+.fin-pname:focus, .fin-pct:focus { border-color: #0969da; outline: none; }
+
+/* Finance — restore chips + effective-dated split periods */
+.fin-restore { border: 1px dashed #d0d7de; background: #f6f8fa; color: #57606a; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 7px; cursor: pointer; margin-left: 8px; }
+.fin-restore:hover { border-color: #1a7f37; color: #1a7f37; }
+.fin-seg { border: 1px solid #eaeef2; border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; background: #fff; }
+.fin-seg-head { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: #57606a; margin-bottom: 6px; }
+.fin-seg-head select { height: 28px; border: 1px solid #d0d7de; border-radius: 7px; padding: 0 6px; font-size: 12.5px; }
+.fin-seg-head .fin-rowx { margin-left: auto; font-size: 11.5px; }
+
+/* Finance — edit-mode toggle */
+.fin-statement-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.fin-statement-head .fin-title { margin-bottom: 0; }
+.fin-editbtn { margin-left: auto; height: 30px; padding: 0 14px; border: 1px solid #d0d7de; background: #fff; border-radius: 8px; cursor: pointer; font-size: 12.5px; font-weight: 600; color: #57606a; }
+.fin-editbtn:hover { background: #f6f8fa; }
+.fin-editbtn.active { background: #0969da; border-color: #0969da; color: #fff; }
+.fin-editing .fin-label.indent { padding-left: 24px; }
+
+/* Finance — export bar + print (PDF) */
+.fin-export { margin-left: auto; display: flex; gap: 8px; }
+@media print {
+  .finance-panel { height: auto !important; overflow: visible !important; padding: 0 !important; }
+  .fin-toolbar, .fin-months, .fin-editbtn, .fin-statement-head .fin-editbtn, .fin-actions, .fin-addrow, .fin-rowx, .fin-restore, .fin-split-editor, .fin-export { display: none !important; }
+  .fin-amt, .fin-note { border: none !important; background: transparent !important; padding: 0 2px !important; box-shadow: none !important; }
+  .fin-table { max-width: none !important; }
+  .fin-statement, .fin-general { break-inside: avoid; }
+}
+
+/* Finance — settings modal + unit prices + fill/genbar */
+.fin-genbar { display: flex; justify-content: flex-end; margin-bottom: 8px; }
+.fin-modal { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: center; justify-content: center; z-index: 100; }
+.fin-modal-card { background: #fff; border-radius: 12px; width: 460px; max-width: 92vw; max-height: 86vh; overflow: auto; box-shadow: 0 20px 60px rgba(0,0,0,.3); }
+.fin-modal-head { display: flex; align-items: center; padding: 14px 16px; border-bottom: 1px solid #eaeef2; font-size: 15px; }
+.fin-modal-head b { flex: 1; }
+.fin-modal-x { border: none; background: #f0f3f6; color: #57606a; width: 26px; height: 26px; border-radius: 7px; cursor: pointer; }
+.fin-modal-x:hover { background: #e1e6eb; }
+.fin-modal-tabs { display: flex; gap: 4px; padding: 10px 16px 0; }
+.fin-modal-tabs button { border: 1px solid #d0d7de; background: #fff; border-bottom: none; border-radius: 8px 8px 0 0; padding: 7px 14px; font-size: 13px; font-weight: 600; color: #57606a; cursor: pointer; }
+.fin-modal-tabs button.active { background: #0969da; border-color: #0969da; color: #fff; }
+.fin-modal-body { padding: 14px 16px; }
+.fin-modal-body .fin-split-editor, .fin-modal-body .fin-title { margin-top: 0; border-top: none; padding-top: 0; }
+.fin-price-editor .fin-splitedit td { padding: 5px 8px 5px 0; }
+.fin-price-editor .fin-label { font-weight: 500; }
+.fin-price-unit { color: #8b949e; font-size: 12px; }
+.fin-hint { font-size: 12px; color: #57606a; background: #f6f8fa; border: 1px solid #eaeef2; border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; }
+
+/* Finance — COGS settings modal */
+.fin-cogs-row { display: grid; grid-template-columns: 96px 1fr auto; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #eaeef2; }
+.fin-cogs-lbl { display: flex; flex-direction: column; font-weight: 700; font-size: 13px; line-height: 1.25; }
+.fin-cogs-wh { display: flex; flex-wrap: wrap; gap: 10px; }
+.fin-wh { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; color: #24292f; }
+.fin-cogs-price { font-size: 12.5px; color: #57606a; white-space: nowrap; }
+.fin-cogs-sep { font-size: 10.5px; text-transform: uppercase; letter-spacing: .5px; color: #8b949e; font-weight: 700; margin: 12px 0 4px; }
+.fin-statement-head .fin-editbtn { margin-left: 8px; }
+.fin-statement-head .fin-editbtn:first-of-type { margin-left: auto; }
+
+/* Finance — COGS modal dynamic bits */
+.fin-cogs-tot { font-family: monospace; font-size: 11px; color: #8b949e; font-weight: 400; }
+.fin-cogs-row .fin-cogs-tot { margin-left: 0; }
+.fin-cogs-dyn { color: #1a7f37; font-weight: 700; margin-left: 5px; }
+
+/* Finance — highlight unpriced (new) COGS categories */
+.fin-cogs-row.fin-unpriced { background: #fff8e6; border-radius: 8px; }
+tr.fin-unpriced td { background: #fff8e6; }
+.fin-newbadge { display: inline-block; margin-left: 6px; font-size: 9.5px; font-weight: 800; color: #9a6700; background: #fff3cd; border: 1px solid #f0d58c; border-radius: 5px; padding: 1px 5px; letter-spacing: .3px; vertical-align: middle; }

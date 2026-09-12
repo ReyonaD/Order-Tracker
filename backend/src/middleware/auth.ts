@@ -92,6 +92,22 @@ export async function requireStaff(req: Request, res: Response, next: NextFuncti
   next();
 }
 
+/** Require the user to have Finance access. Unlike the other tabs, admins do NOT
+ *  get it automatically — Finance is sensitive, so EVERY user (admins included)
+ *  needs the canViewFinance flag, and granting that flag is password-protected. */
+export async function requireFinance(req: Request, res: Response, next: NextFunction): Promise<void> {
+  if (!req.user) {
+    res.status(401).json({ status: "error", message: "Not authenticated" });
+    return;
+  }
+  const u = await prisma.user.findUnique({ where: { id: req.user.id }, select: { canViewFinance: true } });
+  if (!u?.canViewFinance) {
+    res.status(403).json({ status: "error", message: "Finance access required" });
+    return;
+  }
+  next();
+}
+
 /** Require the authenticated user to have one of the given roles. */
 export function requireRole(...roles: string[]) {
   return (req: Request, res: Response, next: NextFunction): void => {

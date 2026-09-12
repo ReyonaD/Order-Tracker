@@ -31,6 +31,7 @@ export const VIEWS: ViewDef[] = [
   { key: "richardson", label: "Richardson Production", params: { view: "richardson" }, group: "production" },
   { key: "houston", label: "Houston Production", params: { view: "houston" }, group: "production" },
   { key: "mesquite", label: "Mesquite Production", params: { view: "mesquite" }, group: "production" },
+  { key: "detroit", label: "Detroit Production", params: { view: "detroit" }, group: "production" },
   { key: "outsidepickup", label: "Outside Pick-up", params: { view: "outsidepickup" }, group: "production" },
   // Deadline
   { key: "deadline5", label: "Today 5 PM", params: { view: "deadline5" }, group: "deadline" },

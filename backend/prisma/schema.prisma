@@ -31,10 +31,32 @@ model User {
   canViewSheets  Boolean @default(false)
   // Grants access to the Staff tab (per-designer uploads + per-operator prints).
   canViewStaff   Boolean @default(false)
+  // Grants access to the Finance tab (per-store monthly income statements).
+  canViewFinance Boolean @default(false)
   // Per-user UI preferences: current column layout + saved presets (JSON).
   preferences  Json?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Finance — per-store monthly income statement. The finance employee fills the
+// line items by hand (some computed from Sheets); totals are derived in the UI.
+// `data` holds { values: {key:number}, notes: {key:string} } so the line-item
+// set can grow without a schema change.
+// ---------------------------------------------------------------------------
+model FinanceStatement {
+  id        String   @id @default(cuid())
+  storeCode String
+  year      Int
+  month     Int      // 1-12
+  data      Json     @default("{}")
+  updatedBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([storeCode, year, month])
+  @@index([year])
 }
 
 // ---------------------------------------------------------------------------
@@ -170,6 +192,7 @@ model Order {
   machineName    String?     // M: which machine the file was printed on (dropdown)
 
   image          OrderImage?
+  sheets         Sheet[]     // per-sheet print progress reported by DTF Monitor
 
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
@@ -177,6 +200,31 @@ model Order {
   @@index([storeCode])
   @@index([status])
   @@index([orderDate])
+}
+
+// One gang-sheet part of an order, as tracked on the print floor (DTF Monitor agent
+// queue): RIPPED when Flexi logs it, PRINTED when the oven camera reads its QR.
+// The order's printStatus / machineName / machinistName are rolled up from these
+// rows ("RIP'd 1/5" → "Printed 3/5" → "Printed"). A multi-sheet order can therefore
+// be split across machines/operators.
+model Sheet {
+  id           String    @id @default(cuid())
+  order        Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId      String
+  part         Int       // 1-based part number
+  total        Int       @default(1)
+  copies       Int       @default(1) // "(2x)" → two physical sheets of this part
+  status       String    // "RIPPED" | "PRINTED"
+  fileName     String?
+  machine      String?
+  operator     String?
+  rippedAt     DateTime?
+  printedAt    DateTime?
+  printedCount Int       @default(0) // copies that went through the oven
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([orderId, part])
 }
 
 // One uploaded image per order (PNG/JPEG). Bytes live in their own table so the

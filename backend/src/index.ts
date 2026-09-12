@@ -16,6 +16,7 @@ import { integrationRouter } from "./routes/integrations";
 import { reportRouter } from "./routes/reports";
 import { sheetRouter } from "./routes/sheets";
 import { staffRouter } from "./routes/staff";
+import { financeRouter } from "./routes/finance";
 
 const app = express();
 
@@ -41,6 +42,7 @@ app.use("/integrations", integrationRouter);
 app.use("/reports", reportRouter);
 app.use("/sheets", sheetRouter);
 app.use("/staff", staffRouter);
+app.use("/finance", financeRouter);
 
 // In production, serve the built React app from the same origin (single-service deploy).
 // API routes are registered above, so they win; everything else falls back to index.html.

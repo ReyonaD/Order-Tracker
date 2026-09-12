@@ -6,16 +6,17 @@ interface Props {
   canReports?: boolean;
   canSheets?: boolean;
   canStaff?: boolean;
+  canFinance?: boolean;
 }
 
 const GROUP_ORDER: ViewDef["group"][] = ["all", "stores", "production", "deadline", "status"];
 
-export default function Sidebar({ activeView, onSelect, canReports, canSheets, canStaff }: Props) {
+export default function Sidebar({ activeView, onSelect, canReports, canSheets, canStaff, canFinance }: Props) {
   return (
     <aside className="sidebar">
       <div className="sidebar-brand">Order Tracker</div>
       <nav>
-        {(canReports || canSheets || canStaff) && (
+        {(canReports || canSheets || canStaff || canFinance) && (
           <div className="sidebar-group">
             {canReports && (
               <button
@@ -39,6 +40,14 @@ export default function Sidebar({ activeView, onSelect, canReports, canSheets, c
                 onClick={() => onSelect("staff")}
               >
                 👥 Staff
+              </button>
+            )}
+            {canFinance && (
+              <button
+                className={`sidebar-item sidebar-reports ${activeView === "finance" ? "active" : ""}`}
+                onClick={() => onSelect("finance")}
+              >
+                💰 Finance
               </button>
             )}
           </div>

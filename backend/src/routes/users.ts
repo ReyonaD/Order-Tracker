@@ -4,6 +4,16 @@ import { z } from "zod";
 import { prisma } from "../db";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { loadPermissions } from "../config/permissions";
+import { env } from "../env";
+
+// Granting Finance access is gated by a password (so not every admin can
+// self-enable it). Returns null if OK, or an error message.
+function financeGateError(enabling: boolean | undefined, password: string | undefined): string | null {
+  if (!enabling) return null; // only enabling is protected; turning off is free
+  if (!env.financeUnlockPassword) return "Finance access is locked (no password configured)";
+  if (password !== env.financeUnlockPassword) return "Wrong Finance password";
+  return null;
+}
 
 export const userRouter = Router();
 
@@ -17,7 +27,7 @@ async function isValidRole(role: string): Promise<boolean> {
 // All user management is admin-only.
 userRouter.use(requireAuth, requireRole("ADMIN"));
 
-const userSelect = { id: true, email: true, name: true, role: true, active: true, canViewReports: true, canViewSheets: true, canViewStaff: true, createdAt: true };
+const userSelect = { id: true, email: true, name: true, role: true, active: true, canViewReports: true, canViewSheets: true, canViewStaff: true, canViewFinance: true, createdAt: true };
 
 userRouter.get("/", async (_req, res) => {
   const users = await prisma.user.findMany({ orderBy: { createdAt: "asc" }, select: userSelect });
@@ -32,6 +42,8 @@ const createSchema = z.object({
   canViewReports: z.boolean().optional(),
   canViewSheets: z.boolean().optional(),
   canViewStaff: z.boolean().optional(),
+  canViewFinance: z.boolean().optional(),
+  financePassword: z.string().optional(),
 });
 
 userRouter.post("/", async (req, res) => {
@@ -40,14 +52,16 @@ userRouter.post("/", async (req, res) => {
     res.status(400).json({ status: "error", message: "Invalid input (password min 6 chars)" });
     return;
   }
-  const { email, name, password, role, canViewReports, canViewSheets, canViewStaff } = parsed.data;
+  const { email, name, password, role, canViewReports, canViewSheets, canViewStaff, canViewFinance, financePassword } = parsed.data;
   if (!(await isValidRole(role))) {
     res.status(400).json({ status: "error", message: `Unknown role: ${role}` });
     return;
   }
+  const gate = financeGateError(canViewFinance, financePassword);
+  if (gate) { res.status(403).json({ status: "error", message: gate }); return; }
   try {
     const user = await prisma.user.create({
-      data: { email: email.toLowerCase(), name, role, canViewReports: canViewReports ?? false, canViewSheets: canViewSheets ?? false, canViewStaff: canViewStaff ?? false, passwordHash: await bcrypt.hash(password, 10) },
+      data: { email: email.toLowerCase(), name, role, canViewReports: canViewReports ?? false, canViewSheets: canViewSheets ?? false, canViewStaff: canViewStaff ?? false, canViewFinance: canViewFinance ?? false, passwordHash: await bcrypt.hash(password, 10) },
       select: userSelect,
     });
     res.status(201).json({ status: "success", user });
@@ -63,6 +77,8 @@ const updateSchema = z.object({
   canViewReports: z.boolean().optional(),
   canViewSheets: z.boolean().optional(),
   canViewStaff: z.boolean().optional(),
+  canViewFinance: z.boolean().optional(),
+  financePassword: z.string().optional(),
   password: z.string().min(6).optional(),
 });
 
@@ -72,11 +88,14 @@ userRouter.patch("/:id", async (req, res) => {
     res.status(400).json({ status: "error", message: "Invalid input" });
     return;
   }
-  const { name, role, active, canViewReports, canViewSheets, canViewStaff, password } = parsed.data;
+  const { name, role, active, canViewReports, canViewSheets, canViewStaff, canViewFinance, financePassword, password } = parsed.data;
   if (role !== undefined && !(await isValidRole(role))) {
     res.status(400).json({ status: "error", message: `Unknown role: ${role}` });
     return;
   }
+  // Enabling Finance access requires the password (turning it off does not).
+  const gate = financeGateError(canViewFinance === true, financePassword);
+  if (gate) { res.status(403).json({ status: "error", message: gate }); return; }
   const data: Record<string, unknown> = {};
   if (name !== undefined) data.name = name;
   if (role !== undefined) data.role = role;
@@ -84,6 +103,7 @@ userRouter.patch("/:id", async (req, res) => {
   if (canViewReports !== undefined) data.canViewReports = canViewReports;
   if (canViewSheets !== undefined) data.canViewSheets = canViewSheets;
   if (canViewStaff !== undefined) data.canViewStaff = canViewStaff;
+  if (canViewFinance !== undefined) data.canViewFinance = canViewFinance;
   if (password) data.passwordHash = await bcrypt.hash(password, 10);
 
   // Guard: don't let the last active admin lock themselves out.

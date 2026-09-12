@@ -104,6 +104,18 @@ Per-store monthly income statements (`FinanceStatement`, `data` JSON = `{values,
   xlsx workbooks (Jan–Jul 2026, 10 stores).
 - COGS is manual unless the operator runs ⚙ COGS. Annual "2025" summary sheets not imported.
 
+## Print progress from the floor (DTF Monitor → `/integrations/print`)
+Two modes on the same endpoint (`backend/src/routes/integrations.ts`, `X-Api-Key`):
+- **Order-level (legacy)**: `{orderCode, machine, operator, printStatus}` sets the order's
+  printStatus/machineName/machinistName directly (old RIPLOG "auto-complete" + Complete button).
+- **Per-sheet (2026-09, agent Queue)**: `{orderCode, part, total, copies, stage: ripped|printed,
+  machine, operator, fileName, printedCount}` upserts a **`Sheet`** row (`@@unique(orderId, part)`)
+  and **rolls the order up**: all parts printed → `Printed`; some → `Printed 2/5`; only RIP'd →
+  `RIP'd 1/5`; machineName/machinistName = comma-joined contributors. Only the exact value
+  `Printed` counts as done (Not-Printed view = `printStatus != 'Printed'`), so a split order
+  keeps showing as work until every sheet went through the oven. `GET /integrations/order-status`
+  returns the sheets too. Chase list / thresholds are the planned next step on top of this.
+
 ## Delivery (planned, mostly not built here)
 PICASSO local delivery uses Shopify native Local Delivery + the EasyRoutes app, NOT a custom
 build. Phase 2 (future): OT adds a `ready-to-deliver` Shopify tag when a delivery order is

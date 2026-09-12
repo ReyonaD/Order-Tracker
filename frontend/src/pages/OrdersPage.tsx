@@ -11,6 +11,7 @@ import OrdersTable from "../components/OrdersTable";
 import ReportsPanel from "../components/ReportsPanel";
 import SheetsPanel from "../components/SheetsPanel";
 import StaffPanel from "../components/StaffPanel";
+import FinancePanel from "../components/FinancePanel";
 
 export default function OrdersPage() {
   const { user, logout } = useAuth();
@@ -28,10 +29,14 @@ export default function OrdersPage() {
   const isReports = activeView === "reports";
   const isSheets = activeView === "sheets";
   const isStaff = activeView === "staff";
-  const isPanel = isReports || isSheets || isStaff;
+  const isFinance = activeView === "finance";
+  const isPanel = isReports || isSheets || isStaff || isFinance;
   const canReports = user?.role === "ADMIN" || !!user?.canViewReports;
   const canSheets = user?.role === "ADMIN" || !!user?.canViewSheets;
   const canStaff = user?.role === "ADMIN" || !!user?.canViewStaff;
+  // Finance is sensitive: admins do NOT get it automatically — the explicit
+  // (password-gated) canViewFinance flag is required for everyone.
+  const canFinance = !!user?.canViewFinance;
   const view = useMemo(() => VIEWS.find((v) => v.key === activeView) ?? VIEWS[0], [activeView]);
 
   // Single-store views break the facet down by pickup/shipping; multi-store views by store.
@@ -99,6 +104,7 @@ export default function OrdersPage() {
         canReports={canReports}
         canSheets={canSheets}
         canStaff={canStaff}
+        canFinance={canFinance}
         onSelect={(k) => {
           setActiveView(k);
           setFacet(emptyFacet);
@@ -140,7 +146,7 @@ export default function OrdersPage() {
 
       <div className="main">
         <header className="topbar">
-          <div className="topbar-title">{isReports ? "Reports" : isSheets ? "Sheets" : isStaff ? "Staff" : view.label}</div>
+          <div className="topbar-title">{isReports ? "Reports" : isSheets ? "Sheets" : isStaff ? "Staff" : isFinance ? "Finance" : view.label}</div>
           {!isPanel && (
             <>
               <input
@@ -206,6 +212,8 @@ export default function OrdersPage() {
           <SheetsPanel />
         ) : isStaff ? (
           <StaffPanel />
+        ) : isFinance ? (
+          <FinancePanel />
         ) : (
           <>
             <div className="table-wrap">
