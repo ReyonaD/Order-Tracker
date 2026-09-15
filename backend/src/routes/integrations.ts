@@ -63,6 +63,7 @@ const printSchema = z.object({
   copies: z.coerce.number().int().min(1).optional(),
   printedCount: z.coerce.number().int().min(0).optional(),
   fileName: z.string().optional(),
+  urgent: z.boolean().optional(), // file name started with "++" → priority order
 });
 
 const uniq = (xs: (string | null | undefined)[]) => [...new Set(xs.filter((x): x is string => !!x))];
@@ -105,7 +106,7 @@ integrationRouter.post("/print", checkKey, async (req, res) => {
     res.status(400).json({ status: "error", message: "Invalid input" });
     return;
   }
-  const { machine, operator, printStatus, stage, part, total, copies, printedCount, fileName } = parsed.data;
+  const { machine, operator, printStatus, stage, part, total, copies, printedCount, fileName, urgent } = parsed.data;
   const code = parsed.data.orderCode.trim().replace(/^#/, "").toUpperCase();
 
   // Match orders whose name is "#CODE" or "CODE" (case-insensitive), like the sheet did.
@@ -153,6 +154,8 @@ integrationRouter.post("/print", checkKey, async (req, res) => {
       });
       await rollupOrder(o.id);
     }
+    // "++" in the file name flags the order urgent (never un-flags: that stays a manual choice)
+    if (urgent) await prisma.order.updateMany({ where: { id: { in: orders.map((o) => o.id) }, urgent: false }, data: { urgent: true } });
   } else {
     const data: Record<string, unknown> = { printStatus };
     if (machine) data.machineName = machine;

@@ -115,7 +115,8 @@ Two modes on the same endpoint (`backend/src/routes/integrations.ts`, `X-Api-Key
   `Printed` counts as done (Not-Printed view = `printStatus != 'Printed'`), so a split order
   keeps showing as work until every sheet went through the oven. `GET /integrations/order-status`
   returns the sheets too. Stages: `downloaded` (→ `Downloaded n/N`, clears later stages = restart
-  of that sheet), `ripped`, `printed`.
+  of that sheet), `ripped`, `printed`. `urgent: true` (file name began with `++`) sets `Order.urgent`;
+  it is never un-set by the integration (manual choice). Chase list sorts urgent first within a flag.
 - **Chase list** (`backend/src/routes/chase.ts` → `GET /chase`, `frontend/src/components/ChasePanel.tsx`,
   sidebar "🔥 Chase list", visible to everyone): orders with `status NEW`, deadline in
   [today−3d, end of today] (Texas) and `printStatus != Printed`, each with the stage it is stuck

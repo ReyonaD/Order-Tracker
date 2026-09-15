@@ -126,7 +126,8 @@ chaseRouter.get("/", async (_req, res) => {
   // An order whose every sheet was scanned is through the oven even if a legacy
   // order-level update left printStatus out of sync — it is not a chase item.
   const open = items.filter((it) => !(it.progress.total > 0 && it.progress.printed >= it.progress.total));
-  open.sort((a, b) => FLAG_RANK[a.flag] - FLAG_RANK[b.flag] || a.deadlineAt.getTime() - b.deadlineAt.getTime());
+  // late → warn → ok; urgent orders first within each group; then by deadline
+  open.sort((a, b) => FLAG_RANK[a.flag] - FLAG_RANK[b.flag] || Number(b.urgent) - Number(a.urgent) || a.deadlineAt.getTime() - b.deadlineAt.getTime());
   const counts = { late: 0, warn: 0, ok: 0, total: open.length };
   for (const it of open) counts[it.flag]++;
   res.json({ status: "success", now: now.toISO(), items: open, counts, settings });

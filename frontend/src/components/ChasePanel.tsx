@@ -91,7 +91,7 @@ export default function ChasePanel({ isAdmin }: { isAdmin: boolean }) {
             <tbody>
               {items.map((it) => (
                 <tr key={it.id} className={`chase-row ${it.flag}`}>
-                  <td className="chase-order">{it.orderName}{it.urgent && <span className="chase-urgent" title="Urgent">!</span>}</td>
+                  <td className="chase-order">{it.orderName}{it.urgent && <span className="chase-urgent" title='Priority order ("++" file or urgent flag)'>URGENT</span>}</td>
                   <td>{it.storeCode}</td>
                   <td className="chase-due" title={new Date(it.deadlineAt).toLocaleString()}>{fmtDue(it.deadlineAt)}</td>
                   <td className="chase-ship">{it.isPickup ? "Pick-up" : it.shipping || "—"}</td>

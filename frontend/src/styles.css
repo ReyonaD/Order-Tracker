@@ -1088,7 +1088,7 @@ tr.fin-unpriced td { background: #fff8e6; }
 .chase-row.late .chase-msg { color: #b91c1c; font-weight: 600; }
 .chase-row.warn .chase-msg { color: #b45309; }
 .chase-order { font-family: ui-monospace, Menlo, Consolas, monospace; font-weight: 700; }
-.chase-urgent { margin-left: 6px; color: #fff; background: #ef4444; border-radius: 4px; padding: 0 5px; font-size: 11px; }
+.chase-urgent { margin-left: 6px; color: #fff; background: #ef4444; border-radius: 4px; padding: 1px 6px; font-size: 10px; font-weight: 800; letter-spacing: .4px; vertical-align: middle; }
 .chase-due, .chase-ship { color: #4b5563; }
 .chase-stage { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; background: #f3f4f6; color: #6b7280; }
 .chase-stage.downloaded { background: #e5e7eb; color: #374151; }
