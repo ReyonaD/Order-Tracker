@@ -50,6 +50,23 @@ integrationRouter.get("/order-status", checkKey, async (req, res) => {
   });
 });
 
+// Test/reset helper (DTF Monitor "reset" tool): forget everything the floor reported for
+// an order — its Sheet rows and the rolled-up print columns — so it can be printed again.
+integrationRouter.delete("/print", checkKey, async (req, res) => {
+  const raw = String(req.query.orderCode || (req.body && req.body.orderCode) || "").trim();
+  if (!raw) { res.status(400).json({ status: "error", message: "orderCode required" }); return; }
+  const code = raw.replace(/^#/, "").toUpperCase();
+  const orders = await prisma.order.findMany({
+    where: { OR: [{ orderName: { equals: `#${code}`, mode: "insensitive" } }, { orderName: { equals: code, mode: "insensitive" } }] },
+    select: { id: true },
+  });
+  if (orders.length === 0) { res.status(404).json({ status: "error", message: `Order '${code}' not found` }); return; }
+  const ids = orders.map((o) => o.id);
+  const deleted = await prisma.sheet.deleteMany({ where: { orderId: { in: ids } } });
+  await prisma.order.updateMany({ where: { id: { in: ids } }, data: { printStatus: null, machineName: null, machinistName: null } });
+  res.json({ status: "success", orderCode: code, sheetsDeleted: deleted.count, orders: ids.length });
+});
+
 const printSchema = z.object({
   orderCode: z.string().min(1), // e.g. "IN3300" or "#IN3300"
   machine: z.string().optional(),
