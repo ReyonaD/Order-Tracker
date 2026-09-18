@@ -86,7 +86,9 @@ pulled from DTF Monitor (`/sheets/pull-split`).
 
 ## Finance tab (`backend/src/routes/finance.ts`, `frontend/src/components/FinancePanel.tsx`)
 Per-store monthly income statements (`FinanceStatement`, `data` JSON = `{values, notes, custom, hidden}`).
-- Revenue = net sales + shipping; COGS = sum of its rows; Net income = income − COGS − expenses.
+- Revenue = sum of ALL income rows (fixed + custom, minus hidden — fixed 2026-09-18, it used to be
+  only net sales + shipping so custom income rows didn't move it); COGS and Operating expenses =
+  sum of their rows (both shown as totals); Net income = income − COGS − expenses.
 - **General/Bilanço**: months × Gelir/Gider/Fark + partner Dağılım. Top tab = all stores; each
   store tab has its own "Summary". Partner splits are **effective-dated per store** (AppConfig
   `financeSplits` = `{store: [{start:YYYYMM, partners:[{name,pct}]}]}`), profit split is

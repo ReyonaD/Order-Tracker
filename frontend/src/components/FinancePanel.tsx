@@ -66,10 +66,11 @@ function sectionKeys(data: Data, sec: Section): string[] {
 }
 function compute(data: Data) {
   const v = data.values;
-  const hidden = new Set(data.hidden || []);
   const sum = (sec: Section) => sectionKeys(data, sec).reduce((a, k) => a + num(v, k), 0);
-  const revenue = (hidden.has("netSales") ? 0 : num(v, "netSales")) + (hidden.has("shippingRevenue") ? 0 : num(v, "shippingRevenue"));
+  // Revenue = every income line (fixed + custom, minus hidden) — the same set Net income
+  // is built from, so an added income row moves both.
   const totalIncome = sum("income");
+  const revenue = totalIncome;
   const cogs = sum("cogs");
   const expenses = sum("expense");
   return { revenue, totalIncome, cogs, expenses, net: totalIncome - cogs - expenses };
@@ -214,7 +215,7 @@ export default function FinancePanel() {
     out.push(["COGS", f2(c.cogs), ""]);
     FIXED.cogs.filter((r) => !hiddenSet.has(r.key)).forEach((r) => push(r.label, r.key));
     customOf("cogs").forEach((r) => push(r.label, r.id));
-    out.push(["Operating expenses", "", ""]);
+    out.push(["Operating expenses", f2(c.expenses), ""]);
     FIXED.expense.filter((r) => !hiddenSet.has(r.key)).forEach((r) => push(r.label, r.key));
     customOf("expense").forEach((r) => push(r.label, r.id));
     out.push(["Net income (P/L)", f2(c.net), ""]);
@@ -309,7 +310,7 @@ export default function FinancePanel() {
                   {fixedLines("income")}{customLines("income")}{sectionTail("income")}
                   <tr className="fin-strong fin-computed"><td className="fin-label">COGS</td><td className="fin-amt-cell"><span className="fin-amt-out">{usd(c.cogs)}</span></td><td /></tr>
                   {fixedLines("cogs")}{customLines("cogs")}{sectionTail("cogs")}
-                  <tr className="fin-section-lbl"><td colSpan={3}>Operating expenses</td></tr>
+                  <tr className="fin-strong fin-computed"><td className="fin-label">Operating expenses</td><td className="fin-amt-cell"><span className="fin-amt-out">{usd(c.expenses)}</span></td><td /></tr>
                   {fixedLines("expense")}{customLines("expense")}{sectionTail("expense")}
                   <tr className="fin-strong fin-computed"><td className="fin-label">Net income (P/L)</td><td className="fin-amt-cell"><span className="fin-amt-out">{usd(c.net)}</span></td><td /></tr>
                   {fixedLines("memo")}{customLines("memo")}{sectionTail("memo")}
