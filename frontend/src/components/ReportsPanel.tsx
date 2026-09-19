@@ -63,38 +63,113 @@ function accum(map: Map<string, Base>, key: string, c: Base) {
 }
 
 // ---- time-series line chart (pure SVG, no deps) ----
+// Interactive: hover shows a guide line + tooltip for the nearest point; the x-axis picks
+// a label density that fits (daily / every other day / weekly …) so long ranges stay
+// readable; weekends are shaded on daily series; the line is smoothed; dots appear only
+// when there is room for them (or on hover).
+const DOW_S = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function bucketDate(b: string): Date | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(b);
+  return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null;
+}
+function shortLabel(b: string, withYear = false): string {
+  const d = bucketDate(b);
+  if (!d) return b; // hourly buckets ("13:00") stay as-is
+  return `${MON[d.getMonth()]} ${d.getDate()}${withYear ? ` ${d.getFullYear()}` : ""}`;
+}
+function longLabel(b: string): string {
+  const d = bucketDate(b);
+  return d ? `${DOW_S[d.getDay()]}, ${MON[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}` : b;
+}
+function niceMax(v: number): number {
+  if (v <= 0) return 1;
+  const p = Math.pow(10, Math.floor(Math.log10(v)));
+  const f = v / p;
+  const nf = f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10;
+  return nf * p;
+}
 function LineChart({ series, metric }: { series: ReportSeriesPoint[]; metric: Metric }) {
+  const [hover, setHover] = useState<number | null>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
   if (!series.length) return <div className="report-empty">No data in range.</div>;
-  const W = 1000, H = 240, padL = 60, padR = 14, padT = 14, padB = 30;
+  const W = 1000, H = 260, padL = 64, padR = 18, padT = 18, padB = 34;
   const innerW = W - padL - padR, innerH = H - padT - padB;
   const n = series.length;
-  const max = Math.max(1, ...series.map((s) => metric.get(s)));
+  const vals = series.map((s) => metric.get(s));
+  const max = niceMax(Math.max(...vals));
   const x = (i: number) => padL + (n === 1 ? innerW / 2 : (i / (n - 1)) * innerW);
   const y = (v: number) => padT + innerH - (v / max) * innerH;
-  const line = series.map((s, i) => `${x(i)},${y(metric.get(s))}`).join(" ");
-  const area = `${x(0)},${padT + innerH} ${line} ${x(n - 1)},${padT + innerH}`;
-  const step = Math.max(1, Math.ceil(n / 10));
+  const pts = vals.map((v, i) => [x(i), y(v)] as const);
+  // smooth path (Catmull-Rom → cubic Bézier), clamped so it never dips below the axis
+  let d = `M ${pts[0][0]} ${pts[0][1]}`;
+  for (let i = 0; i < n - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(n - 1, i + 2)];
+    const c1x = p1[0] + (p2[0] - p0[0]) / 6, c1y = Math.min(padT + innerH, p1[1] + (p2[1] - p0[1]) / 6);
+    const c2x = p2[0] - (p3[0] - p1[0]) / 6, c2y = Math.min(padT + innerH, p2[1] - (p3[1] - p1[1]) / 6);
+    d += ` C ${c1x} ${c1y}, ${c2x} ${c2y}, ${p2[0]} ${p2[1]}`;
+  }
+  const area = `${d} L ${pts[n - 1][0]} ${padT + innerH} L ${pts[0][0]} ${padT + innerH} Z`;
+  // x labels: pick the smallest step whose labels don't collide (~62px each)
+  const maxLabels = Math.max(2, Math.floor(innerW / 62));
+  const daily = !!bucketDate(series[0].bucket);
+  const candidates = daily ? [1, 2, 3, 7, 14, 28] : [1, 2, 3, 4, 6, 12];
+  const step = candidates.find((c) => Math.ceil(n / c) <= maxLabels) ?? Math.ceil(n / maxLabels);
+  const sameYear = daily && bucketDate(series[0].bucket)!.getFullYear() === bucketDate(series[n - 1].bucket)!.getFullYear();
+  const showDots = n <= 45;
+  const px = (i: number) => x(i);
+  const onMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    const svg = svgRef.current; if (!svg) return;
+    const r = svg.getBoundingClientRect();
+    const mx = ((e.clientX - r.left) / r.width) * W;
+    let best = 0, bd = Infinity;
+    for (let i = 0; i < n; i++) { const dd = Math.abs(px(i) - mx); if (dd < bd) { bd = dd; best = i; } }
+    setHover(best);
+  };
+  const hv = hover != null ? series[hover] : null;
+  const tipW = 168, tipH = 44;
+  const tipX = hv ? Math.min(W - padR - tipW, Math.max(padL, x(hover!) - tipW / 2)) : 0;
+  const tipY = hv ? Math.max(padT, y(vals[hover!]) - tipH - 12) : 0;
   return (
-    <svg className="report-chart" viewBox={`0 0 ${W} ${H}`} role="img">
+    <svg ref={svgRef} className="report-chart" viewBox={`0 0 ${W} ${H}`} role="img"
+      onMouseMove={onMove} onMouseLeave={() => setHover(null)}>
+      <defs>
+        <linearGradient id="chartFill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#0969da" stopOpacity="0.28" />
+          <stop offset="100%" stopColor="#0969da" stopOpacity="0.02" />
+        </linearGradient>
+      </defs>
+      {daily && n > 1 && series.map((s, i) => {
+        const dt = bucketDate(s.bucket); if (!dt || (dt.getDay() !== 0 && dt.getDay() !== 6)) return null;
+        const half = innerW / (n - 1) / 2;
+        return <rect key={`w${i}`} x={x(i) - half} y={padT} width={half * 2} height={innerH} className="chart-weekend" />;
+      })}
       {[0, 0.25, 0.5, 0.75, 1].map((f) => {
         const gy = padT + innerH - f * innerH;
         return (
           <g key={f}>
             <line x1={padL} y1={gy} x2={W - padR} y2={gy} className="chart-grid" />
-            <text x={padL - 8} y={gy + 4} className="chart-ylab" textAnchor="end">{metric.fmt(max * f)}</text>
+            <text x={padL - 10} y={gy + 4} className="chart-ylab" textAnchor="end">{metric.fmt(max * f)}</text>
           </g>
         );
       })}
-      <polygon points={area} className="chart-area" />
-      <polyline points={line} className="chart-line" />
-      {series.map((s, i) => (
-        <circle key={i} cx={x(i)} cy={y(metric.get(s))} r={3} className="chart-dot">
-          <title>{s.bucket}: {metric.fmt(metric.get(s))}</title>
-        </circle>
-      ))}
-      {series.map((s, i) => (i % step === 0 || i === n - 1) ? (
-        <text key={`x${i}`} x={x(i)} y={H - 9} className="chart-xlab" textAnchor="middle">{s.bucket}</text>
+      <path d={area} fill="url(#chartFill)" />
+      <path d={d} className="chart-line" />
+      {series.map((s, i) => ((i % step === 0 && i <= n - 1 - step / 2) || i === n - 1) ? (
+        <text key={`x${i}`} x={x(i)} y={H - 10} className="chart-xlab" textAnchor={i === 0 ? "start" : i === n - 1 ? "end" : "middle"}>
+          {daily ? shortLabel(s.bucket, !sameYear) : s.bucket}
+        </text>
       ) : null)}
+      {showDots && pts.map(([cx, cy], i) => <circle key={i} cx={cx} cy={cy} r={3} className="chart-dot" />)}
+      {hv && (
+        <g className="chart-hover">
+          <line x1={x(hover!)} y1={padT} x2={x(hover!)} y2={padT + innerH} className="chart-guide" />
+          <circle cx={x(hover!)} cy={y(vals[hover!])} r={5} className="chart-dot-hover" />
+          <rect x={tipX} y={tipY} width={tipW} height={tipH} rx={7} className="chart-tip" />
+          <text x={tipX + 10} y={tipY + 17} className="chart-tip-date">{daily ? longLabel(hv.bucket) : hv.bucket}</text>
+          <text x={tipX + 10} y={tipY + 35} className="chart-tip-val">{metric.label}: {metric.fmt(vals[hover!])}</text>
+        </g>
+      )}
     </svg>
   );
 }

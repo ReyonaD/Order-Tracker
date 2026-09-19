@@ -915,6 +915,13 @@ a:hover { text-decoration: underline; }
 .chart-area { fill: rgba(9,105,218,0.10); stroke: none; }
 .chart-line { fill: none; stroke: #0969da; stroke-width: 2; vector-effect: non-scaling-stroke; }
 .chart-dot { fill: #0969da; }
+.chart-weekend { fill: rgba(87,96,106,0.05); }
+.chart-guide { stroke: #0969da; stroke-width: 1; stroke-dasharray: 3 3; opacity: .7; vector-effect: non-scaling-stroke; }
+.chart-dot-hover { fill: #fff; stroke: #0969da; stroke-width: 2.5; }
+.chart-tip { fill: #1f2328; opacity: .94; }
+.chart-tip-date { fill: #c9d1d9; font-size: 11px; }
+.chart-tip-val { fill: #fff; font-size: 13px; font-weight: 700; }
+.report-chart { cursor: crosshair; }
 @media print { .chart-head select { display: none; } }
 
 /* Reports date-range picker (Shopify-style two-month calendar) */
