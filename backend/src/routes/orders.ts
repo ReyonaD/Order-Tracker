@@ -422,6 +422,16 @@ orderRouter.post(
 );
 
 // View the image bytes (auth via header or ?token=, so <img> tags work).
+// Print history of one order: per-sheet state + every confirmed print/reprint event
+// reported by the floor (DTF Monitor). Read-only; any signed-in user.
+orderRouter.get("/:id/print-history", async (req, res) => {
+  const [sheets, events] = await Promise.all([
+    prisma.sheet.findMany({ where: { orderId: req.params.id }, orderBy: { part: "asc" } }),
+    prisma.printEvent.findMany({ where: { orderId: req.params.id }, orderBy: { at: "desc" } }),
+  ]);
+  res.json({ status: "success", sheets, events });
+});
+
 orderRouter.get("/:id/image", async (req, res) => {
   const img = await prisma.orderImage.findUnique({ where: { orderId: req.params.id } });
   if (!img) { res.status(404).json({ status: "error", message: "No image" }); return; }

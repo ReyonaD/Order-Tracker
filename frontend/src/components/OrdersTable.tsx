@@ -6,6 +6,7 @@ import { formatDeadline, formatDateTime, deadlineState } from "../utils";
 import { LineItem, summarizeItems, classifyItem, itemLength, relabelType, hasLength, typeLabel, TYPE_COLOR } from "../itemClassify";
 import { Layout, useLayoutPrefs } from "../hooks/useLayoutPrefs";
 import EditableCell from "./EditableCell";
+import PrintHistoryButton from "./PrintHistoryButton";
 import ColumnFilters from "./ColumnFilters";
 
 interface Props {
@@ -109,10 +110,13 @@ const COLUMNS: ColumnDef[] = [
     ),
   },
   {
-    key: "machine", label: "Machine", width: 122,
+    key: "machine", label: "Machine", width: 148,
     render: (o, c) => (
-      <EditableCell type="select" value={o.machineName} editable={c.canEdit("machine")}
-        options={c.dropdowns?.machine ?? []} onCommit={(v) => c.update(o.id, "machineName", v)} />
+      <span className="machine-cell">
+        <EditableCell type="select" value={o.machineName} editable={c.canEdit("machine")}
+          options={c.dropdowns?.machine ?? []} onCommit={(v) => c.update(o.id, "machineName", v)} />
+        <PrintHistoryButton orderId={o.id} orderName={o.orderName} hasReprint={!!(o.machineName && o.machineName.includes("R:"))} />
+      </span>
     ),
   },
   {
