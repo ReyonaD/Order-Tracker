@@ -119,6 +119,12 @@ Two modes on the same endpoint (`backend/src/routes/integrations.ts`, `X-Api-Key
   returns the sheets too. Stages: `downloaded` (→ `Downloaded n/N`, clears later stages = restart
   of that sheet), `ripped`, `printed`. `urgent: true` (file name began with `++`) sets `Order.urgent`;
   it is never un-set by the integration (manual choice). Chase list sorts urgent first within a flag.
+- **Reprints (2026-09-25):** a per-sheet `printed` call with `reprint: true` (file name contains
+  `REPRINT`, detected by DTF Monitor) does NOT overwrite the Sheet's original printer; it increments
+  `Sheet.reprints`, sets `lastReprint*`, and logs a `PrintEvent` (kind print|reprint — every confirmed
+  print is logged). Rollup shows `Picasso_M_1 · R: Picasso_M_3` / `EMRE · R: ALI` in the order's
+  machine/operator columns; `order-status` returns `events`. Reprint downloaded/RIP'd stages are
+  ignored so the order stays `Printed`.
 - **Chase list** (`backend/src/routes/chase.ts` → `GET /chase`, `frontend/src/components/ChasePanel.tsx`,
   sidebar "🔥 Chase list", visible to everyone): orders with `status NEW`, deadline in
   [today−3d, end of today] (Texas) and `printStatus != Printed`, each with the stage it is stuck

@@ -222,10 +222,30 @@ model Sheet {
   rippedAt     DateTime?
   printedAt    DateTime?
   printedCount Int       @default(0) // copies that went through the oven
+  // Reprints never overwrite the original print above; they are counted here and
+  // logged one by one in PrintEvent.
+  reprints          Int       @default(0)
+  lastReprintAt     DateTime?
+  lastReprintMachine String?
+  lastReprintOperator String?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
   @@unique([orderId, part])
+}
+
+// Every confirmed print of a sheet (first print or reprint), as reported by the floor.
+model PrintEvent {
+  id        String   @id @default(cuid())
+  orderId   String
+  part      Int
+  kind      String   // "print" | "reprint"
+  machine   String?
+  operator  String?
+  fileName  String?
+  at        DateTime @default(now())
+
+  @@index([orderId])
 }
 
 // One uploaded image per order (PNG/JPEG). Bytes live in their own table so the

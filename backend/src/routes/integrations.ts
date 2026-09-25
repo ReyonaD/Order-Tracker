@@ -38,9 +38,12 @@ integrationRouter.get("/order-status", checkKey, async (req, res) => {
   if (!order) { res.json({ status: "success", found: false, code }); return; }
   const sheets = await prisma.sheet.findMany({
     where: { orderId: order.id }, orderBy: { part: "asc" },
-    select: { part: true, total: true, copies: true, status: true, machine: true, operator: true, printedAt: true, rippedAt: true },
+    select: { part: true, total: true, copies: true, status: true, machine: true, operator: true, printedAt: true, rippedAt: true,
+              reprints: true, lastReprintAt: true, lastReprintMachine: true, lastReprintOperator: true },
   });
+  const events = await prisma.printEvent.findMany({ where: { orderId: order.id }, orderBy: { at: "asc" } });
   res.json({
+    events,
     status: "success", found: true, code, orderName: order.orderName,
     printed: (order.printStatus || "").toLowerCase() === "printed",
     printStatus: order.printStatus || "",
@@ -63,6 +66,7 @@ integrationRouter.delete("/print", checkKey, async (req, res) => {
   if (orders.length === 0) { res.status(404).json({ status: "error", message: `Order '${code}' not found` }); return; }
   const ids = orders.map((o) => o.id);
   const deleted = await prisma.sheet.deleteMany({ where: { orderId: { in: ids } } });
+  await prisma.printEvent.deleteMany({ where: { orderId: { in: ids } } });
   await prisma.order.updateMany({ where: { id: { in: ids } }, data: { printStatus: null, machineName: null, machinistName: null } });
   res.json({ status: "success", orderCode: code, sheetsDeleted: deleted.count, orders: ids.length });
 });
@@ -81,6 +85,7 @@ const printSchema = z.object({
   printedCount: z.coerce.number().int().min(0).optional(),
   fileName: z.string().optional(),
   urgent: z.boolean().optional(), // file name started with "++" → priority order
+  reprint: z.boolean().optional(), // file name contains "REPRINT": a re-run of an already printed sheet
 });
 
 const uniq = (xs: (string | null | undefined)[]) => [...new Set(xs.filter((x): x is string => !!x))];
@@ -104,12 +109,18 @@ async function rollupOrder(orderId: string) {
   else if (downloaded.length > 0) printStatus = total > 1 ? `Downloaded ${downloaded.length}/${total}` : "Downloaded";
   else printStatus = null;
   const src = printed.length > 0 ? printed : ripped.length > 0 ? ripped : downloaded; // who did the latest stage
+  // Reprints are shown next to the original printer: "Picasso_M_1 · R: Picasso_M_3"
+  const rMachines = uniq(sheets.map((s) => s.lastReprintMachine)), rOps = uniq(sheets.map((s) => s.lastReprintOperator));
+  const withR = (base: string[], r: string[]) => {
+    const b = base.join(", ");
+    return r.length ? `${b || "—"} · R: ${r.join(", ")}` : b || null;
+  };
   await prisma.order.update({
     where: { id: orderId },
     data: {
       printStatus,
-      machineName: uniq(src.map((s) => s.machine)).join(", ") || null,
-      machinistName: uniq(src.map((s) => s.operator)).join(", ") || null,
+      machineName: withR(uniq(src.map((s) => s.machine)), rMachines),
+      machinistName: withR(uniq(src.map((s) => s.operator)), rOps),
     },
   });
 }
@@ -123,7 +134,7 @@ integrationRouter.post("/print", checkKey, async (req, res) => {
     res.status(400).json({ status: "error", message: "Invalid input" });
     return;
   }
-  const { machine, operator, printStatus, stage, part, total, copies, printedCount, fileName, urgent } = parsed.data;
+  const { machine, operator, printStatus, stage, part, total, copies, printedCount, fileName, urgent, reprint } = parsed.data;
   const code = parsed.data.orderCode.trim().replace(/^#/, "").toUpperCase();
 
   // Match orders whose name is "#CODE" or "CODE" (case-insensitive), like the sheet did.
@@ -149,6 +160,24 @@ integrationRouter.post("/print", checkKey, async (req, res) => {
       : "RIPPED";
     const now = new Date();
     for (const o of orders) {
+      if (reprint) {
+        // A reprint of an already printed sheet must not overwrite who printed it first.
+        // Downloaded/RIP'd stages of a reprint are ignored (the order stays Printed);
+        // the printed stage is counted + logged.
+        const existing = await prisma.sheet.findUnique({ where: { orderId_part: { orderId: o.id, part } } });
+        if (existing && existing.status === "PRINTED") {
+          if (status === "PRINTED") {
+            await prisma.sheet.update({
+              where: { id: existing.id },
+              data: { reprints: { increment: 1 }, lastReprintAt: now, lastReprintMachine: machine, lastReprintOperator: operator },
+            });
+            await prisma.printEvent.create({ data: { orderId: o.id, part, kind: "reprint", machine, operator, fileName, at: now } });
+            await rollupOrder(o.id);
+          }
+          continue;
+        }
+        // never printed before → fall through and treat it as the first print
+      }
       await prisma.sheet.upsert({
         where: { orderId_part: { orderId: o.id, part } },
         create: {
@@ -169,6 +198,9 @@ integrationRouter.post("/print", checkKey, async (req, res) => {
             : {}),
         },
       });
+      if (status === "PRINTED") {
+        await prisma.printEvent.create({ data: { orderId: o.id, part, kind: reprint ? "reprint" : "print", machine, operator, fileName, at: now } });
+      }
       await rollupOrder(o.id);
     }
     // "++" in the file name flags the order urgent (never un-flags: that stays a manual choice)
