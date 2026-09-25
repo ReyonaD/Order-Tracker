@@ -24,6 +24,12 @@ export default function Sidebar({ activeView, onSelect, canReports, canSheets, c
             >
               🔥 Chase list
             </button>
+            <button
+              className={`sidebar-item sidebar-reports ${activeView === "floor" ? "active" : ""}`}
+              onClick={() => onSelect("floor")}
+            >
+              🖨 Floor queue
+            </button>
             {canReports && (
               <button
                 className={`sidebar-item sidebar-reports ${activeView === "reports" ? "active" : ""}`}

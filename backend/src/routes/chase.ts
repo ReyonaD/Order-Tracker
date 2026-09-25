@@ -32,6 +32,25 @@ async function loadSettings(): Promise<ChaseSettings> {
   return parsed.success ? parsed.data : DEFAULT_SETTINGS;
 }
 
+// Floor queue (DTF Monitor's per-machine board) — proxied so OT users see it without
+// a DTF Monitor login. Same key as the warehouse-split pull.
+chaseRouter.get("/floor", async (_req, res) => {
+  if (!env.dtfMonitorUrl || !env.dtfMonitorApiKey) {
+    res.status(503).json({ status: "error", message: "DTF Monitor integration is not configured" });
+    return;
+  }
+  try {
+    const r = await fetch(`${env.dtfMonitorUrl.replace(/\/$/, "")}/api/queue/all`, {
+      headers: { "X-API-Key": env.dtfMonitorApiKey }, signal: AbortSignal.timeout(15000),
+    });
+    if (!r.ok) { res.status(502).json({ status: "error", message: `DTF Monitor responded ${r.status}` }); return; }
+    const data = await r.json();
+    res.json({ status: "success", machines: data.machines || {}, now: data.now });
+  } catch (e) {
+    res.status(502).json({ status: "error", message: e instanceof Error ? e.message : "DTF Monitor unreachable" });
+  }
+});
+
 chaseRouter.get("/settings", async (_req, res) => {
   res.json({ status: "success", settings: await loadSettings() });
 });

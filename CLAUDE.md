@@ -125,6 +125,8 @@ Two modes on the same endpoint (`backend/src/routes/integrations.ts`, `X-Api-Key
   print is logged). Rollup shows `Picasso_M_1 · R: Picasso_M_3` / `EMRE · R: ALI` in the order's
   machine/operator columns; `order-status` returns `events`. Reprint downloaded/RIP'd stages are
   ignored so the order stays `Printed`.
+- **Floor queue** (sidebar, everyone): DTF Monitor's per-machine board proxied via `GET /chase/floor`
+  (server-side fetch of `<DTF_MONITOR_URL>/api/queue/all` with `DTF_MONITOR_API_KEY`) so no second login.
 - **Chase list** (`backend/src/routes/chase.ts` → `GET /chase`, `frontend/src/components/ChasePanel.tsx`,
   sidebar "🔥 Chase list", visible to everyone): orders with `status NEW`, deadline in
   [today−3d, end of today] (Texas) and `printStatus != Printed`, each with the stage it is stuck

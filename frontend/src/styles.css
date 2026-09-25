@@ -1136,3 +1136,25 @@ tr.fin-unpriced td { background: #fff8e6; }
 .ph-table td { padding: 5px 6px; border-bottom: 1px solid #f1f5f9; white-space: nowrap; }
 .ph-kind { font-size: 10.5px; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: #dcfce7; color: #166534; }
 .ph-kind.reprint { background: #dbeafe; color: #1e40af; }
+
+
+/* Floor queue (DTF Monitor board inside OT) */
+.fq-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(520px, 1fr)); gap: 14px; margin-top: 12px; }
+.fq-machine { background: #fff; border: 1px solid #e1e4e8; border-radius: 10px; overflow: hidden; }
+.fq-mh { display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: #f6f8fa; border-bottom: 1px solid #e1e4e8; }
+.fq-name { font-family: ui-monospace, Menlo, Consolas, monospace; font-weight: 700; color: #0969da; }
+.fq-op { font-size: 12px; color: #57606a; }
+.fq-cnt { margin-left: auto; font-size: 11.5px; color: #57606a; font-variant-numeric: tabular-nums; }
+.fq-row { display: grid; grid-template-columns: 20px 140px minmax(100px,1fr) 92px minmax(180px,auto); align-items: center; gap: 10px; padding: 7px 12px; border-bottom: 1px solid #f1f5f9; min-height: 40px; font-size: 12.5px; }
+.fq-row.warn { box-shadow: inset 3px 0 0 #f59e0b; } .fq-row.late { box-shadow: inset 3px 0 0 #ef4444; } .fq-row.done { opacity: .6; }
+.fq-ic { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 10px; font-weight: 800; border: 1.5px solid #9ca3af; color: #6b7280; }
+.fq-row.rip .fq-ic { border-color: #7c3aed; color: #7c3aed; background: #f5f3ff; } .fq-row.done .fq-ic { border-color: #22c55e; background: #22c55e; color: #fff; }
+.fq-code { font-family: ui-monospace, Menlo, Consolas, monospace; font-weight: 700; white-space: nowrap; }
+.fq-code small { margin-left: 4px; font-weight: 600; color: #9ca3af; }
+.fq-urg { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 4px; background: #ef4444; color: #fff; font-size: 9.5px; font-weight: 800; font-style: normal; letter-spacing: .4px; vertical-align: middle; }
+.fq-rep { background: #2563eb; }
+.fq-cust { color: #57606a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .fq-cust b { font-family: ui-monospace, Menlo, Consolas, monospace; color: #111827; margin-left: 8px; font-weight: 600; }
+.fq-chip { justify-self: start; font-size: 10.5px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; background: #f3f4f6; color: #6b7280; white-space: nowrap; }
+.fq-chip.rip { background: #ede9fe; color: #5b21b6; } .fq-chip.done { background: #dcfce7; color: #166534; }
+.fq-msg { color: #57606a; white-space: nowrap; font-variant-numeric: tabular-nums; } .fq-row.warn .fq-msg { color: #b45309; } .fq-row.late .fq-msg { color: #b91c1c; font-weight: 600; }
+.fq-sec { padding: 6px 12px 3px; font-size: 10.5px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: #9ca3af; } .fq-idle { color: #16a34a; padding-bottom: 8px; }

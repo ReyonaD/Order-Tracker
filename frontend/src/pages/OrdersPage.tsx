@@ -13,6 +13,7 @@ import SheetsPanel from "../components/SheetsPanel";
 import StaffPanel from "../components/StaffPanel";
 import FinancePanel from "../components/FinancePanel";
 import ChasePanel from "../components/ChasePanel";
+import FloorQueuePanel from "../components/FloorQueuePanel";
 
 export default function OrdersPage() {
   const { user, logout } = useAuth();
@@ -32,7 +33,8 @@ export default function OrdersPage() {
   const isStaff = activeView === "staff";
   const isFinance = activeView === "finance";
   const isChase = activeView === "chase";
-  const isPanel = isReports || isSheets || isStaff || isFinance || isChase;
+  const isFloor = activeView === "floor";
+  const isPanel = isReports || isSheets || isStaff || isFinance || isChase || isFloor;
   const canReports = user?.role === "ADMIN" || !!user?.canViewReports;
   const canSheets = user?.role === "ADMIN" || !!user?.canViewSheets;
   const canStaff = user?.role === "ADMIN" || !!user?.canViewStaff;
@@ -218,6 +220,8 @@ export default function OrdersPage() {
           <FinancePanel />
         ) : isChase ? (
           <ChasePanel isAdmin={user?.role === "ADMIN"} />
+        ) : isFloor ? (
+          <FloorQueuePanel />
         ) : (
           <>
             <div className="table-wrap">
