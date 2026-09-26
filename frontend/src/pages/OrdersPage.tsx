@@ -221,7 +221,7 @@ export default function OrdersPage() {
         ) : isChase ? (
           <ChasePanel isAdmin={user?.role === "ADMIN"} />
         ) : isFloor ? (
-          <FloorQueuePanel />
+          <FloorQueuePanel onOpenInOrders={(code) => { setActiveView("all"); setFacet(emptyFacet); setStatusFilter(""); setSearch(code); setPage(1); }} />
         ) : (
           <>
             <div className="table-wrap">

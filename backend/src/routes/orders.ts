@@ -422,6 +422,19 @@ orderRouter.post(
 );
 
 // View the image bytes (auth via header or ?token=, so <img> tags work).
+// Look an order up by its code ("PRO3956" / "#PRO3956") — used by the Floor queue
+// to open the order behind a queue row.
+orderRouter.get("/by-code/:code", async (req, res) => {
+  const code = String(req.params.code || "").trim().replace(/^#/, "").toUpperCase();
+  if (!code) { res.status(400).json({ status: "error", message: "code required" }); return; }
+  const order = await prisma.order.findFirst({
+    where: { OR: [{ orderName: { equals: `#${code}`, mode: "insensitive" } }, { orderName: { equals: code, mode: "insensitive" } }] },
+    include: storeInclude,
+  });
+  if (!order) { res.status(404).json({ status: "error", message: `Order ${code} not found` }); return; }
+  res.json({ status: "success", order });
+});
+
 // Print history of one order: per-sheet state + every confirmed print/reprint event
 // reported by the floor (DTF Monitor). Read-only; any signed-in user.
 orderRouter.get("/:id/print-history", async (req, res) => {
