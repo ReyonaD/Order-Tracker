@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, orderImageUrl } from "../api/client";
 import { Order } from "../types";
@@ -127,13 +127,16 @@ export default function FloorQueuePanel({ onOpenInOrders }: { onOpenInOrders?: (
 function OrderModal({ code, onClose, onOpenInOrders }: { code: string; onClose: () => void; onOpenInOrders?: (code: string) => void }) {
   const [order, setOrder] = useState<Order | null>(null);
   const [err, setErr] = useState("");
+  const closeRef = useRef(onClose); closeRef.current = onClose;
+  // Load once per code — NOT on every 5 s board refresh (the parent re-renders and hands
+  // us a new onClose each time; depending on it re-ran this and flashed "Loading…").
   useEffect(() => {
     setOrder(null); setErr("");
     api.get<{ order: Order }>(`/orders/by-code/${encodeURIComponent(code)}`).then((r) => setOrder(r.order)).catch((e) => setErr(e instanceof Error ? e.message : "Not found"));
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") closeRef.current(); };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [code, onClose]);
+  }, [code]);
   const o = order;
   const row = (label: string, val: React.ReactNode) => (val === null || val === undefined || val === "" ? null : <div className="om-row"><span className="om-k">{label}</span><span className="om-v">{val}</span></div>);
   return (
