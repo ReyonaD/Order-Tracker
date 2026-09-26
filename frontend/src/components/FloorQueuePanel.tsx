@@ -8,7 +8,8 @@ interface Item {
   copies: number; inch: string; cust: string; assigned_at: string; ripped_at: string | null; printed_at: string | null;
   printed_count: number; manual: boolean; printed_machine: string; printed_operator: string; urgent: boolean; reprint?: boolean;
 }
-interface Resp { status: string; machines: Record<string, Item[]>; now: string }
+interface Meta { online: boolean; last_seen: string | null; operator: string; version: string }
+interface Resp { status: string; machines: Record<string, Item[]>; meta?: Record<string, Meta>; now: string }
 
 const STUCK = { dl: [30, 60], rip: [45, 90] }; // minutes → amber, red (same as the agent)
 const mins = (iso: string | null) => (iso ? Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000)) : 0);
@@ -36,6 +37,7 @@ function Row({ it }: { it: Item }) {
 export default function FloorQueuePanel() {
   const q = useQuery({ queryKey: ["floor-queue"], queryFn: () => api.get<Resp>("/chase/floor"), refetchInterval: 5000 });
   const machines = q.data?.machines || {};
+  const meta = q.data?.meta || {};
   const names = Object.keys(machines).sort();
   let dl = 0, rip = 0, ok = 0, bad = 0;
   for (const m of names) for (const it of machines[m]) {
@@ -63,10 +65,11 @@ export default function FloorQueuePanel() {
         {names.map((m) => {
           const items = machines[m];
           const open = items.filter((i) => !i.printed_at), done = items.filter((i) => i.printed_at).sort((a, b) => (b.printed_at || "").localeCompare(a.printed_at || ""));
-          const op = [...new Set(items.map((i) => i.operator).filter(Boolean))].join(", ");
+          const mm = meta[m]; const online = !mm || mm.online;
+          const op = [...new Set(items.map((i) => i.operator).filter(Boolean))].join(", ") || mm?.operator || "";
           return (
-            <section className="fq-machine" key={m}>
-              <div className="fq-mh"><span className="fq-name">{m}</span><span className="fq-op">{op}</span><span className="fq-cnt">○ {open.filter((i) => !i.ripped_at).length} · ◐ {open.filter((i) => i.ripped_at).length} · ✓ {done.length}</span></div>
+            <section className={`fq-machine ${online ? "" : "fq-offline"}`} key={m}>
+              <div className="fq-mh"><span className={`fq-dot ${online ? "on" : "off"}`} title={online ? "online" : `offline${mm?.last_seen ? ` · last seen ${ago(mm.last_seen)}` : ""}`} /><span className="fq-name">{m}</span><span className="fq-op">{op}{!online && <b className="fq-offlbl"> · offline</b>}</span><span className="fq-cnt">○ {open.filter((i) => !i.ripped_at).length} · ◐ {open.filter((i) => i.ripped_at).length} · ✓ {done.length}</span></div>
               {open.length ? open.map((it) => <Row key={it.id} it={it} />) : <div className="fq-sec fq-idle">Nothing in progress</div>}
               {done.length > 0 && <div className="fq-sec">Printed today · {done.length}</div>}
               {done.slice(0, 6).map((it) => <Row key={it.id} it={it} />)}

@@ -45,7 +45,7 @@ chaseRouter.get("/floor", async (_req, res) => {
     });
     if (!r.ok) { res.status(502).json({ status: "error", message: `DTF Monitor responded ${r.status}` }); return; }
     const data = await r.json();
-    res.json({ status: "success", machines: data.machines || {}, now: data.now });
+    res.json({ status: "success", machines: data.machines || {}, meta: data.meta || {}, now: data.now });
   } catch (e) {
     res.status(502).json({ status: "error", message: e instanceof Error ? e.message : "DTF Monitor unreachable" });
   }
