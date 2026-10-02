@@ -6,7 +6,7 @@ import { formatDeadline, formatDateTime, deadlineState } from "../utils";
 import { LineItem, summarizeItems, classifyItem, itemLength, relabelType, hasLength, typeLabel, TYPE_COLOR } from "../itemClassify";
 import { Layout, useLayoutPrefs } from "../hooks/useLayoutPrefs";
 import EditableCell from "./EditableCell";
-import PrintHistoryButton from "./PrintHistoryButton";
+import PrintHistoryButton, { shortTexasTime, fullTexasTime } from "./PrintHistoryButton";
 import ColumnFilters from "./ColumnFilters";
 
 interface Props {
@@ -96,10 +96,15 @@ const COLUMNS: ColumnDef[] = [
     render: (o, c) => <ImageCell order={o} editable={c.canEdit("image")} refresh={c.refresh} />,
   },
   {
-    key: "print", label: "Print", width: 96,
+    key: "print", label: "Print", width: 112,
     render: (o, c) => (
-      <EditableCell type="select" value={o.printStatus} editable={c.canEdit("print")}
-        options={c.dropdowns?.printStatus ?? []} onCommit={(v) => c.update(o.id, "printStatus", v)} />
+      <span className="print-cell">
+        <EditableCell type="select" value={o.printStatus} editable={c.canEdit("print")}
+          options={c.dropdowns?.printStatus ?? []} onCommit={(v) => c.update(o.id, "printStatus", v)} />
+        {o.printStatus && o.printStatusAt && (
+          <small className="print-at" title={`${o.printStatus} · ${fullTexasTime(o.printStatusAt)} (Texas time) — open ⟳ for every step`}>{shortTexasTime(o.printStatusAt)}</small>
+        )}
+      </span>
     ),
   },
   {

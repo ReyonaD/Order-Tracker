@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api, orderImageUrl } from "../api/client";
 import { Order } from "../types";
 import { formatDateTime } from "../utils";
-import PrintHistoryButton from "./PrintHistoryButton";
+import PrintHistoryButton, { shortTexasTime } from "./PrintHistoryButton";
 
 // Floor queue: DTF Monitor's per-machine board (Downloaded → RIP'd → Printed ✓), proxied
 // through OT so anyone signed in here can watch the floor without a second login.
@@ -161,7 +161,7 @@ function OrderModal({ code, onClose, onOpenInOrders }: { code: string; onClose: 
                 {row("Designer", o.designerName)}
                 {row("Upload", o.uploadStatus)}
                 {row("File", o.fileLink ? <a href={o.fileLink} target="_blank" rel="noreferrer">Open file link</a> : null)}
-                {row("Print", o.printStatus)}
+                {row("Print", o.printStatus ? `${o.printStatus}${o.printStatusAt ? ` · ${shortTexasTime(o.printStatusAt)}` : ""}` : null)}
                 {row("Machine", o.machineName)}
                 {row("Operator", o.machinistName)}
                 {row("Note", o.designerNote)}

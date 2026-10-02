@@ -125,6 +125,13 @@ Two modes on the same endpoint (`backend/src/routes/integrations.ts`, `X-Api-Key
   print is logged). Rollup shows `Picasso_M_1 · R: Picasso_M_3` / `EMRE · R: ALI` in the order's
   machine/operator columns; `order-status` returns `events`. Reprint downloaded/RIP'd stages are
   ignored so the order stays `Printed`.
+- **Times of the floor's actions (2026-10-02):** `Order.printStatusAt` = when the print status last
+  changed (set by the per-sheet rollup from the sheets' `downloadedAt`/`rippedAt`/`printedAt`/
+  `lastReprintAt`, by the legacy order-level call, and by a manual edit of the Print column; null
+  when cleared). The Print column shows it under the status ("2:41 PM" today, "Sep 26, 2:41 PM"
+  otherwise — Texas time). `PrintEvent` now logs EVERY stage (`downloaded` | `ripped` | `print` |
+  `reprint`) with machine + operator, and the ⟳ popover lists them newest-first; steps from before
+  this change are rebuilt from the Sheet timestamps (`timeline()` in `PrintHistoryButton.tsx`).
 - **Floor queue** (sidebar, everyone): DTF Monitor's per-machine board proxied via `GET /chase/floor`
   (server-side fetch of `<DTF_MONITOR_URL>/api/queue/all` with `DTF_MONITOR_API_KEY`) so no second login.
 - **Chase list** (`backend/src/routes/chase.ts` → `GET /chase`, `frontend/src/components/ChasePanel.tsx`,

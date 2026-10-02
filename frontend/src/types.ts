@@ -45,6 +45,7 @@ export interface Order {
   problemEmailSent: boolean;
   fileLink: string | null;
   printStatus: string | null;
+  printStatusAt?: string | null; // when the print status last changed (floor report or manual edit)
   designerNote: string | null;
   machinistName: string | null;
   machineName: string | null;

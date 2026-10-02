@@ -373,6 +373,8 @@ orderRouter.patch("/:id", async (req, res) => {
     res.status(403).json({ status: "error", message: "No editable fields for your role" });
     return;
   }
+  // Print status changed by hand → remember when (cleared status = no time)
+  if ("printStatus" in data) data.printStatusAt = data.printStatus ? new Date() : null;
 
   try {
     const order = await prisma.order.update({

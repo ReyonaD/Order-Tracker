@@ -67,7 +67,7 @@ integrationRouter.delete("/print", checkKey, async (req, res) => {
   const ids = orders.map((o) => o.id);
   const deleted = await prisma.sheet.deleteMany({ where: { orderId: { in: ids } } });
   await prisma.printEvent.deleteMany({ where: { orderId: { in: ids } } });
-  await prisma.order.updateMany({ where: { id: { in: ids } }, data: { printStatus: null, machineName: null, machinistName: null } });
+  await prisma.order.updateMany({ where: { id: { in: ids } }, data: { printStatus: null, printStatusAt: null, machineName: null, machinistName: null } });
   res.json({ status: "success", orderCode: code, sheetsDeleted: deleted.count, orders: ids.length });
 });
 
@@ -109,6 +109,12 @@ async function rollupOrder(orderId: string) {
   else if (downloaded.length > 0) printStatus = total > 1 ? `Downloaded ${downloaded.length}/${total}` : "Downloaded";
   else printStatus = null;
   const src = printed.length > 0 ? printed : ripped.length > 0 ? ripped : downloaded; // who did the latest stage
+  // when that stage last moved (a reprint counts as the latest print action)
+  const stamps = src
+    .flatMap((s) => (printed.length > 0 ? [s.printedAt, s.lastReprintAt] : ripped.length > 0 ? [s.rippedAt] : [s.downloadedAt]))
+    .filter((d): d is Date => !!d)
+    .map((d) => d.getTime());
+  const printStatusAt = printStatus && stamps.length ? new Date(Math.max(...stamps)) : null;
   // Reprints are shown next to the original printer: "Picasso_M_1 · R: Picasso_M_3"
   const rMachines = uniq(sheets.map((s) => s.lastReprintMachine)), rOps = uniq(sheets.map((s) => s.lastReprintOperator));
   const withR = (base: string[], r: string[]) => {
@@ -119,6 +125,7 @@ async function rollupOrder(orderId: string) {
     where: { id: orderId },
     data: {
       printStatus,
+      printStatusAt,
       machineName: withR(uniq(src.map((s) => s.machine)), rMachines),
       machinistName: withR(uniq(src.map((s) => s.operator)), rOps),
     },
@@ -198,15 +205,14 @@ integrationRouter.post("/print", checkKey, async (req, res) => {
             : {}),
         },
       });
-      if (status === "PRINTED") {
-        await prisma.printEvent.create({ data: { orderId: o.id, part, kind: reprint ? "reprint" : "print", machine, operator, fileName, at: now } });
-      }
+      const kind = status === "PRINTED" ? (reprint ? "reprint" : "print") : status === "RIPPED" ? "ripped" : "downloaded";
+      await prisma.printEvent.create({ data: { orderId: o.id, part, kind, machine, operator, fileName, at: now } });
       await rollupOrder(o.id);
     }
     // "++" in the file name flags the order urgent (never un-flags: that stays a manual choice)
     if (urgent) await prisma.order.updateMany({ where: { id: { in: orders.map((o) => o.id) }, urgent: false }, data: { urgent: true } });
   } else {
-    const data: Record<string, unknown> = { printStatus };
+    const data: Record<string, unknown> = { printStatus, printStatusAt: new Date() };
     if (machine) data.machineName = machine;
     if (operator) data.machinistName = operator;
     await prisma.order.updateMany({ where: { id: { in: orders.map((o) => o.id) } }, data });

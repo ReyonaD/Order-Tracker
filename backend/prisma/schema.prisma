@@ -190,6 +190,7 @@ model Order {
   designerNote   String?     // K: free-text note from the designer
   machinistName  String?     // L: operator who printed the file (dropdown)
   machineName    String?     // M: which machine the file was printed on (dropdown)
+  printStatusAt  DateTime?   // when printStatus last changed (floor report or manual edit)
 
   image          OrderImage?
   sheets         Sheet[]     // per-sheet print progress reported by DTF Monitor
@@ -239,7 +240,7 @@ model PrintEvent {
   id        String   @id @default(cuid())
   orderId   String
   part      Int
-  kind      String   // "print" | "reprint"
+  kind      String   // "downloaded" | "ripped" | "print" | "reprint" (the first two since 2026-10-02)
   machine   String?
   operator  String?
   fileName  String?
