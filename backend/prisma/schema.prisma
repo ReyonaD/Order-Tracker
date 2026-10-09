@@ -161,6 +161,7 @@ model Order {
 
   // --- Flags ---
   urgent         Boolean     @default(false) // manual "urgent" flag
+  rush           Boolean     @default(false) // "+++" file name on the floor: above urgent, printed first
 
   // --- Items ---
   itemTypes      String[]    // ["T-shirt","Gang Sheet"] etc.

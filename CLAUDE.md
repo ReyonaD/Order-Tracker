@@ -119,6 +119,10 @@ Two modes on the same endpoint (`backend/src/routes/integrations.ts`, `X-Api-Key
   returns the sheets too. Stages: `downloaded` (→ `Downloaded n/N`, clears later stages = restart
   of that sheet), `ripped`, `printed`. `urgent: true` (file name began with `++`) sets `Order.urgent`;
   it is never un-set by the integration (manual choice). Chase list sorts urgent first within a flag.
+- **RUSH (2026-10-09):** a file name starting with `+++` is RUSH — one level above urgent
+  (`++`). The floor sends `rush: true`; OT sets `Order.rush` (never un-sets it; no manual edit —
+  it is the floor's flag). Shown as an orange RUSH tag next to the order number + orange row stripe,
+  in the chase list (sorted rush → urgent → deadline) and the floor queue. `++` alone still = urgent.
 - **Reprints (2026-09-25):** a per-sheet `printed` call with `reprint: true` (file name contains
   `REPRINT`, detected by DTF Monitor) does NOT overwrite the Sheet's original printer; it increments
   `Sheet.reprints`, sets `lastReprint*`, and logs a `PrintEvent` (kind print|reprint — every confirmed

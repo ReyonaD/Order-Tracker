@@ -88,7 +88,7 @@ chaseRouter.get("/", async (_req, res) => {
     },
     select: {
       id: true, orderName: true, storeCode: true, deadlineAt: true, isPickup: true,
-      displayShippingMethod: true, urgent: true, printStatus: true, itemTypes: true,
+      displayShippingMethod: true, urgent: true, rush: true, printStatus: true, itemTypes: true,
       sheets: {
         select: {
           part: true, total: true, copies: true, status: true, machine: true, operator: true,
@@ -135,7 +135,7 @@ chaseRouter.get("/", async (_req, res) => {
 
     return {
       id: o.id, orderName: o.orderName, storeCode: o.storeCode, deadlineAt: o.deadlineAt,
-      isPickup: o.isPickup, shipping: o.displayShippingMethod, urgent: o.urgent, itemTypes: o.itemTypes,
+      isPickup: o.isPickup, shipping: o.displayShippingMethod, urgent: o.urgent, rush: o.rush, itemTypes: o.itemTypes,
       printStatus: o.printStatus, stage, flag, since, sinceMin, dueInMin, message, who,
       progress: { printed: printed.length, ripped: ripped.length, downloaded: downloaded.length, total },
       sheets,
@@ -146,7 +146,7 @@ chaseRouter.get("/", async (_req, res) => {
   // order-level update left printStatus out of sync — it is not a chase item.
   const open = items.filter((it) => !(it.progress.total > 0 && it.progress.printed >= it.progress.total));
   // late → warn → ok; urgent orders first within each group; then by deadline
-  open.sort((a, b) => FLAG_RANK[a.flag] - FLAG_RANK[b.flag] || Number(b.urgent) - Number(a.urgent) || a.deadlineAt.getTime() - b.deadlineAt.getTime());
+  open.sort((a, b) => FLAG_RANK[a.flag] - FLAG_RANK[b.flag] || Number(b.rush) - Number(a.rush) || Number(b.urgent) - Number(a.urgent) || a.deadlineAt.getTime() - b.deadlineAt.getTime());
   const counts = { late: 0, warn: 0, ok: 0, total: open.length };
   for (const it of open) counts[it.flag]++;
   res.json({ status: "success", now: now.toISO(), items: open, counts, settings });

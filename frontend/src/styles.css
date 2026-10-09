@@ -510,6 +510,8 @@ a:hover { text-decoration: underline; }
 .row-cancelled td { background: #ffebe9 !important; color: #82071e; }
 .row-fulfilled td { background: #eaffea; }
 .row-urgent td { box-shadow: inset 3px 0 0 #cf222e; }
+.row-rush td { box-shadow: inset 4px 0 0 #f97316; }
+.rush-tag { margin-left: 5px; color: #111; background: #f97316; border-radius: 4px; padding: 1px 5px; font-size: 9.5px; font-weight: 800; letter-spacing: .4px; vertical-align: middle; font-family: inherit; }
 
 .store-badge {
   display: inline-block;
@@ -1095,6 +1097,7 @@ tr.fin-unpriced td { background: #fff8e6; }
 .chase-row.late .chase-msg { color: #b91c1c; font-weight: 600; }
 .chase-row.warn .chase-msg { color: #b45309; }
 .chase-order { font-family: ui-monospace, Menlo, Consolas, monospace; font-weight: 700; }
+.chase-rush { background: #f97316 !important; color: #111 !important; }
 .chase-urgent { margin-left: 6px; color: #fff; background: #ef4444; border-radius: 4px; padding: 1px 6px; font-size: 10px; font-weight: 800; letter-spacing: .4px; vertical-align: middle; }
 .chase-due, .chase-ship { color: #4b5563; }
 .chase-stage { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; background: #f3f4f6; color: #6b7280; }
@@ -1165,6 +1168,7 @@ tr.fin-unpriced td { background: #fff8e6; }
 .fq-code small { margin-left: 4px; font-weight: 600; color: #9ca3af; }
 .fq-urg { display: inline-block; padding: 1px 6px; border-radius: 4px; background: #ef4444; color: #fff; font-size: 9.5px; font-weight: 800; font-style: normal; letter-spacing: .4px; }
 .fq-rep { background: #2563eb; }
+.fq-rush { background: #f97316; color: #111; }
 .fq-cust { color: #57606a; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1 1 120px; }
 .fq-inch { font-family: ui-monospace, Menlo, Consolas, monospace; color: #111827; font-weight: 600; font-size: 12px; white-space: nowrap; }
 .fq-chip { font-size: 10px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; background: #f3f4f6; color: #6b7280; white-space: nowrap; }

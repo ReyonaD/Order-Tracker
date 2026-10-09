@@ -85,6 +85,7 @@ const printSchema = z.object({
   printedCount: z.coerce.number().int().min(0).optional(),
   fileName: z.string().optional(),
   urgent: z.boolean().optional(), // file name started with "++" → priority order
+  rush: z.boolean().optional(),   // file name started with "+++" → RUSH, above urgent
   reprint: z.boolean().optional(), // file name contains "REPRINT": a re-run of an already printed sheet
 });
 
@@ -141,7 +142,7 @@ integrationRouter.post("/print", checkKey, async (req, res) => {
     res.status(400).json({ status: "error", message: "Invalid input" });
     return;
   }
-  const { machine, operator, printStatus, stage, part, total, copies, printedCount, fileName, urgent, reprint } = parsed.data;
+  const { machine, operator, printStatus, stage, part, total, copies, printedCount, fileName, urgent, reprint, rush } = parsed.data;
   const code = parsed.data.orderCode.trim().replace(/^#/, "").toUpperCase();
 
   // Match orders whose name is "#CODE" or "CODE" (case-insensitive), like the sheet did.
@@ -211,6 +212,8 @@ integrationRouter.post("/print", checkKey, async (req, res) => {
     }
     // "++" in the file name flags the order urgent (never un-flags: that stays a manual choice)
     if (urgent) await prisma.order.updateMany({ where: { id: { in: orders.map((o) => o.id) }, urgent: false }, data: { urgent: true } });
+    // "+++" = RUSH (above urgent); like urgent it is never un-flagged by the floor
+    if (rush) await prisma.order.updateMany({ where: { id: { in: orders.map((o) => o.id) }, rush: false }, data: { rush: true } });
   } else {
     const data: Record<string, unknown> = { printStatus, printStatusAt: new Date() };
     if (machine) data.machineName = machine;

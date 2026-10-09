@@ -221,6 +221,7 @@ const FILTERABLE: Record<string, { field: string; kind: "str" | "arr" | "bool" |
   machine: { field: "machineName", kind: "str", nullable: true },
   status: { field: "status", kind: "enum" },
   urgent: { field: "urgent", kind: "bool" },
+  rush: { field: "rush", kind: "bool" },
 };
 
 const I = "insensitive" as const;

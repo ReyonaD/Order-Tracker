@@ -36,7 +36,7 @@ interface ColumnDef {
 }
 
 const COLUMNS: ColumnDef[] = [
-  { key: "orderName", label: "Order No", width: 90, render: (o) => <span className="mono">{o.orderName}</span> },
+  { key: "orderName", label: "Order No", width: 90, render: (o) => <span className="mono">{o.orderName}{o.rush && <span className="rush-tag" title='RUSH — file name started with "+++" (above urgent)'>RUSH</span>}</span> },
   {
     key: "urgent", label: "Urgent", width: 60,
     render: (o, c) => (
@@ -585,7 +585,7 @@ export default function OrdersTable({ orders, loading, role, dropdowns, perms, v
                 const rowClass = [
                   o.status === "CANCELLED" ? "row-cancelled" : "",
                   o.status === "FULFILLED" ? "row-fulfilled" : "",
-                  o.urgent ? "row-urgent" : "",
+                  o.rush ? "row-rush" : o.urgent ? "row-urgent" : "",
                 ].filter(Boolean).join(" ");
                 return (
                   <tr key={o.id} className={rowClass}>

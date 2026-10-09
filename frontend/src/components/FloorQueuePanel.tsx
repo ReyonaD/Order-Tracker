@@ -10,7 +10,7 @@ import PrintHistoryButton, { shortTexasTime } from "./PrintHistoryButton";
 interface Item {
   id: number; machine: string; operator: string; name: string; code: string; part: number; total: number;
   copies: number; inch: string; cust: string; assigned_at: string; ripped_at: string | null; printed_at: string | null;
-  printed_count: number; manual: boolean; printed_machine: string; printed_operator: string; urgent: boolean; reprint?: boolean;
+  printed_count: number; manual: boolean; printed_machine: string; printed_operator: string; urgent: boolean; rush?: boolean; reprint?: boolean;
 }
 interface Meta { online: boolean; last_seen: string | null; operator: string; version: string }
 interface Resp { status: string; machines: Record<string, Item[]>; meta?: Record<string, Meta>; now: string }
@@ -33,7 +33,7 @@ function Row({ it, onOpen }: { it: Item; onOpen: (code: string) => void }) {
       <div className="fq-main">
         <div className="fq-line1">
           <button type="button" className="fq-code fq-link" title="Open this order" onClick={() => it.code && onOpen(it.code)}>{it.code || it.name}{it.total > 1 && <small>{it.part}/{it.total}</small>}</button>
-          {it.urgent && <em className="fq-urg">URGENT</em>}
+          {it.rush ? <em className="fq-urg fq-rush">RUSH</em> : it.urgent && <em className="fq-urg">URGENT</em>}
           {it.reprint && <em className="fq-urg fq-rep">REPRINT</em>}
           <span className="fq-cust">{it.cust || it.name}</span>
           {it.inch && <b className="fq-inch">{it.inch}{copies > 1 ? ` ×${copies}` : ""}</b>}

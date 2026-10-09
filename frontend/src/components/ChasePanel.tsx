@@ -16,7 +16,7 @@ interface ChaseSheet {
 }
 interface ChaseItem {
   id: string; orderName: string; storeCode: string; deadlineAt: string; isPickup: boolean;
-  shipping: string; urgent: boolean; itemTypes: string[]; printStatus: string | null;
+  shipping: string; urgent: boolean; rush?: boolean; itemTypes: string[]; printStatus: string | null;
   stage: Stage; flag: Flag; since: string | null; sinceMin: number; dueInMin: number;
   message: string; who: string;
   progress: { printed: number; ripped: number; downloaded: number; total: number };
@@ -91,7 +91,7 @@ export default function ChasePanel({ isAdmin }: { isAdmin: boolean }) {
             <tbody>
               {items.map((it) => (
                 <tr key={it.id} className={`chase-row ${it.flag}`}>
-                  <td className="chase-order">{it.orderName}{it.urgent && <span className="chase-urgent" title='Priority order ("++" file or urgent flag)'>URGENT</span>}</td>
+                  <td className="chase-order">{it.orderName}{it.rush ? <span className="chase-urgent chase-rush" title='RUSH ("+++" file) — above urgent'>RUSH</span> : it.urgent && <span className="chase-urgent" title='Priority order ("++" file or urgent flag)'>URGENT</span>}</td>
                   <td>{it.storeCode}</td>
                   <td className="chase-due" title={new Date(it.deadlineAt).toLocaleString()}>{fmtDue(it.deadlineAt)}</td>
                   <td className="chase-ship">{it.isPickup ? "Pick-up" : it.shipping || "—"}</td>

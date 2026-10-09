@@ -33,6 +33,7 @@ export interface Order {
   deadlineAt: string;
   deadlineHour: number;
   urgent: boolean;
+  rush?: boolean; // set by the floor ("+++" file name); above urgent
   itemTypes: string[];
   lineItems?: Array<{ name?: string; title?: string; variant_title?: string; sku?: string; quantity?: number; price?: string }> | null;
   orderUrl: string;
