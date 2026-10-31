@@ -151,6 +151,30 @@ Two modes on the same endpoint (`backend/src/routes/integrations.ts`, `X-Api-Key
   (= `PATCH /orders/:id {printStatus:"Printed"}`, same role permissions as the table) to clear
   orders that were printed but never recorded by the old flow.
 
+## Stock Inventory (`backend/src/routes/stock.ts`, `services/stock*.ts`, `frontend/src/components/stock/`, built 2026-10-31)
+Consumables (ink, film, powder…) per warehouse; replaces the separate PHP "DTF Stock" site. Sidebar
+tab, **visible to every OT user** (no second login). Changing stock from the web needs
+`User.canManageStock` (ADMIN always; checkbox in Admin → Users). Telegram settings = ADMIN.
+- **Warehouses + machines are mirrored from DTF Monitor** (`GET <DTF_MONITOR_URL>/api/integrations/warehouses`)
+  into `StockWarehouse`: every 5 min, on opening the tab (60 s stale) and via a button. New ones appear
+  by themselves; removed ones go `active=false` and keep stock + history. An empty answer never
+  deactivates anything. There is no rename: a renamed warehouse is a new one, stock stays on the old row.
+- **All quantity changes go through `services/stock.ts`**: one conditional `UPDATE … WHERE quantity >= q`
+  (so no negative stock, also a DB CHECK) + a `StockMovement` with before/after. Lists are all-or-nothing.
+  `StockBatch.requestKey` makes every list idempotent: retries/double clicks/the agent's outbox can't
+  deduct twice. Kinds: stock | consumption | transfer | reversal. Lock order is fixed (product id, warehouse id).
+- **Machine usage**: `/integrations/stock/{state,use,undo}` (`X-Api-Key`), called only by the DTF Monitor
+  server, which adds the warehouse from its machine record. Agents have no login: machine + operator
+  identify who. Undo = same machine within 15 min; later a manager reverses it in History.
+- **Low-stock threshold**: `StockProduct.minStock` is the default; `StockLevel.minStock` (nullable) overrides it for one warehouse. Always read `level.minStock ?? product.minStock`.
+- **Categories**: AppConfig `stockCategories`, added/renamed/deleted in the Products tab. DTF and UV are locked: an agent's Stock tab opens on its machine's type, but every machine can reach every category. A category in use cannot be deleted.
+- **Telegram** (`stockJobs.ts`, every minute, in this process): instant usage, low-stock crossing, daily
+  report (`summaryTime`, Texas), bot commands in TR/EN/ES. Token: `TELEGRAM_BOT_TOKEN` or the Stock
+  settings (never returned by the API). Nothing is queued while disabled. Only ONE app may poll a bot token:
+  stop the old PHP site's cron before enabling it here.
+- **This tab is the exception to "English only"**: it has en/tr/es (`components/stock/i18n.ts`, per browser).
+  Its look (paper + mint + CMYK line, from the old stock app) lives in `components/stock/stock.css`, scoped under `.sk`.
+
 ## Delivery (planned, mostly not built here)
 PICASSO local delivery uses Shopify native Local Delivery + the EasyRoutes app, NOT a custom
 build. Phase 2 (future): OT adds a `ready-to-deliver` Shopify tag when a delivery order is

@@ -60,6 +60,22 @@ export async function requireReports(req: Request, res: Response, next: NextFunc
   next();
 }
 
+/** Require stock-management rights (admins always have them; others need the
+ *  canManageStock flag). Viewing stock only needs a login. */
+export async function requireStockManager(req: Request, res: Response, next: NextFunction): Promise<void> {
+  if (!req.user) {
+    res.status(401).json({ status: "error", message: "Not authenticated" });
+    return;
+  }
+  if (req.user.role === "ADMIN") { next(); return; }
+  const u = await prisma.user.findUnique({ where: { id: req.user.id }, select: { canManageStock: true } });
+  if (!u?.canManageStock) {
+    res.status(403).json({ status: "error", code: "forbidden", message: "Stock management access required" });
+    return;
+  }
+  next();
+}
+
 /** Require the user to have Sheets access (admins always do; others need the
  *  canViewSheets flag). */
 export async function requireSheets(req: Request, res: Response, next: NextFunction): Promise<void> {

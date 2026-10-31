@@ -33,6 +33,9 @@ model User {
   canViewStaff   Boolean @default(false)
   // Grants access to the Finance tab (per-store monthly income statements).
   canViewFinance Boolean @default(false)
+  // Stock Inventory is visible to everyone; this grants receiving, transfers,
+  // reversals and the product list (ADMIN always has it).
+  canManageStock Boolean @default(false)
   // Per-user UI preferences: current column layout + saved presets (JSON).
   preferences  Json?
   createdAt    DateTime @default(now())
@@ -283,4 +286,97 @@ model SheetEntry {
   updatedAt     DateTime @updatedAt
 
   @@unique([month, storeCode, type])
+}
+
+// ---------------------------------------------------------------------------
+// Stock Inventory — consumables (ink, film, powder…) per warehouse. Warehouses and
+// their machines are mirrored from DTF Monitor (the source of truth), so a new
+// warehouse/machine there shows up here on the next sync. Quantities only change
+// through services/stock.ts: one row in StockLevel, one StockMovement for the trail.
+// ---------------------------------------------------------------------------
+model StockWarehouse {
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  active    Boolean   @default(true)   // false = no longer in DTF Monitor; history is kept
+  machines  Json?                      // [{name, type}] from DTF Monitor
+  syncedAt  DateTime?
+  levels    StockLevel[]
+  movements StockMovement[]
+}
+
+model StockProduct {
+  id        Int      @id @default(autoincrement())
+  name      String
+  category  String   // DTF | UV
+  unit      String   // bottle | roll | pcs | kg | liter | meter | box
+  minStock  Decimal  @default(3) @db.Decimal(10, 2)
+  active    Boolean  @default(true)
+  levels    StockLevel[]
+  movements StockMovement[]
+}
+
+model StockLevel {
+  warehouseId Int
+  productId   Int
+  quantity    Decimal @default(0) @db.Decimal(10, 2)
+  minStock    Decimal? @db.Decimal(10, 2)   // this warehouse's own threshold; null = the product's
+  warehouse   StockWarehouse @relation(fields: [warehouseId], references: [id])
+  product     StockProduct   @relation(fields: [productId], references: [id])
+
+  @@id([warehouseId, productId])
+}
+
+model StockMovement {
+  id          Int       @id @default(autoincrement())
+  warehouseId Int
+  productId   Int
+  type        String    // in | out
+  kind        String    @default("stock")  // stock | consumption | transfer | reversal
+  quantity    Decimal   @db.Decimal(10, 2)
+  before      Decimal   @db.Decimal(10, 2)
+  after       Decimal   @db.Decimal(10, 2)
+  note        String    @default("")
+  actor       String    @default("")       // OT user name, or the agent's operator
+  machine     String    @default("")       // set when it came from a printer PC's agent
+  source      String    @default("web")    // web | agent
+  batchKey    String?
+  reversedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  warehouse   StockWarehouse @relation(fields: [warehouseId], references: [id])
+  product     StockProduct   @relation(fields: [productId], references: [id])
+
+  @@index([warehouseId, createdAt])
+  @@index([kind, createdAt])
+  @@index([batchKey])
+}
+
+// One row per submitted list. requestKey is unique, so a re-sent request (network
+// retry, double click, the agent's offline outbox) cannot change the stock twice.
+model StockBatch {
+  requestKey  String   @id
+  payloadHash String
+  createdAt   DateTime @default(now())
+}
+
+model StockNotification {
+  id        Int       @id @default(autoincrement())
+  eventKey  String    @unique
+  message   String
+  status    String    @default("pending")  // pending | sent | failed
+  attempts  Int       @default(0)
+  lastError String?
+  createdAt DateTime  @default(now())
+  sentAt    DateTime?
+
+  @@index([status, id])
+}
+
+model StockAudit {
+  id        Int      @id @default(autoincrement())
+  actor     String   @default("")
+  action    String
+  detail    String   @default("")
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
 }

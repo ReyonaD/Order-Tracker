@@ -11,6 +11,7 @@ export interface User {
   canViewSheets?: boolean;
   canViewStaff?: boolean;
   canViewFinance?: boolean;
+  canManageStock?: boolean;
 }
 
 export interface StoreRef {
@@ -104,6 +105,7 @@ export interface AdminUser {
   canViewSheets: boolean;
   canViewStaff: boolean;
   canViewFinance: boolean;
+  canManageStock: boolean;
   createdAt: string;
 }
 

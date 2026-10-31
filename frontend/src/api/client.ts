@@ -14,9 +14,13 @@ export function clearToken() {
 
 export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  code?: string;
+  params?: Record<string, unknown>;
+  constructor(status: number, message: string, code?: string, params?: Record<string, unknown>) {
     super(message);
     this.status = status;
+    this.code = code;
+    this.params = params;
   }
 }
 
@@ -34,7 +38,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
     if (res.status === 401) clearToken();
-    throw new ApiError(res.status, body?.message || `Request failed (${res.status})`);
+    throw new ApiError(res.status, body?.message || `Request failed (${res.status})`, body?.code, body?.params);
   }
   return body as T;
 }

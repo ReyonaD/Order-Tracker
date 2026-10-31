@@ -7,7 +7,7 @@ import { env } from "../env";
 // the DTF printer agent server can mark orders printed instead of writing to Sheets.
 export const integrationRouter = Router();
 
-function checkKey(req: Request, res: Response, next: NextFunction): void {
+export function checkKey(req: Request, res: Response, next: NextFunction): void {
   const key = req.get("X-Api-Key") || "";
   if (!env.integrationApiKey || key !== env.integrationApiKey) {
     res.status(401).json({ status: "error", message: "Invalid or missing API key" });

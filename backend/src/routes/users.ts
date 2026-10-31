@@ -27,7 +27,7 @@ async function isValidRole(role: string): Promise<boolean> {
 // All user management is admin-only.
 userRouter.use(requireAuth, requireRole("ADMIN"));
 
-const userSelect = { id: true, email: true, name: true, role: true, active: true, canViewReports: true, canViewSheets: true, canViewStaff: true, canViewFinance: true, createdAt: true };
+const userSelect = { id: true, email: true, name: true, role: true, active: true, canViewReports: true, canViewSheets: true, canViewStaff: true, canViewFinance: true, canManageStock: true, createdAt: true };
 
 userRouter.get("/", async (_req, res) => {
   const users = await prisma.user.findMany({ orderBy: { createdAt: "asc" }, select: userSelect });
@@ -43,6 +43,7 @@ const createSchema = z.object({
   canViewSheets: z.boolean().optional(),
   canViewStaff: z.boolean().optional(),
   canViewFinance: z.boolean().optional(),
+  canManageStock: z.boolean().optional(),
   financePassword: z.string().optional(),
 });
 
@@ -52,7 +53,7 @@ userRouter.post("/", async (req, res) => {
     res.status(400).json({ status: "error", message: "Invalid input (password min 6 chars)" });
     return;
   }
-  const { email, name, password, role, canViewReports, canViewSheets, canViewStaff, canViewFinance, financePassword } = parsed.data;
+  const { email, name, password, role, canViewReports, canViewSheets, canViewStaff, canViewFinance, canManageStock, financePassword } = parsed.data;
   if (!(await isValidRole(role))) {
     res.status(400).json({ status: "error", message: `Unknown role: ${role}` });
     return;
@@ -61,7 +62,7 @@ userRouter.post("/", async (req, res) => {
   if (gate) { res.status(403).json({ status: "error", message: gate }); return; }
   try {
     const user = await prisma.user.create({
-      data: { email: email.toLowerCase(), name, role, canViewReports: canViewReports ?? false, canViewSheets: canViewSheets ?? false, canViewStaff: canViewStaff ?? false, canViewFinance: canViewFinance ?? false, passwordHash: await bcrypt.hash(password, 10) },
+      data: { email: email.toLowerCase(), name, role, canViewReports: canViewReports ?? false, canViewSheets: canViewSheets ?? false, canViewStaff: canViewStaff ?? false, canViewFinance: canViewFinance ?? false, canManageStock: canManageStock ?? false, passwordHash: await bcrypt.hash(password, 10) },
       select: userSelect,
     });
     res.status(201).json({ status: "success", user });
@@ -78,6 +79,7 @@ const updateSchema = z.object({
   canViewSheets: z.boolean().optional(),
   canViewStaff: z.boolean().optional(),
   canViewFinance: z.boolean().optional(),
+  canManageStock: z.boolean().optional(),
   financePassword: z.string().optional(),
   password: z.string().min(6).optional(),
 });
@@ -88,7 +90,7 @@ userRouter.patch("/:id", async (req, res) => {
     res.status(400).json({ status: "error", message: "Invalid input" });
     return;
   }
-  const { name, role, active, canViewReports, canViewSheets, canViewStaff, canViewFinance, financePassword, password } = parsed.data;
+  const { name, role, active, canViewReports, canViewSheets, canViewStaff, canViewFinance, canManageStock, financePassword, password } = parsed.data;
   if (role !== undefined && !(await isValidRole(role))) {
     res.status(400).json({ status: "error", message: `Unknown role: ${role}` });
     return;
@@ -104,6 +106,7 @@ userRouter.patch("/:id", async (req, res) => {
   if (canViewSheets !== undefined) data.canViewSheets = canViewSheets;
   if (canViewStaff !== undefined) data.canViewStaff = canViewStaff;
   if (canViewFinance !== undefined) data.canViewFinance = canViewFinance;
+  if (canManageStock !== undefined) data.canManageStock = canManageStock;
   if (password) data.passwordHash = await bcrypt.hash(password, 10);
 
   // Guard: don't let the last active admin lock themselves out.

@@ -1,0 +1,148 @@
+// Stock Inventory keeps the three languages of the old stock app (the rest of OT is English).
+export type Lang = "en" | "tr" | "es";
+const KEY = "stock_lang";
+
+export function loadLang(): Lang {
+  try {
+    const v = localStorage.getItem(KEY);
+    return v === "tr" || v === "es" ? v : "en";
+  } catch { return "en"; }
+}
+export function saveLang(l: Lang) {
+  try { localStorage.setItem(KEY, l); } catch { /* private mode */ }
+}
+
+const en = {
+  title: "Stock Inventory", overview: "Overview", receive: "Stock in", use: "Stock out", transfer: "Transfer", history: "History",
+  report: "Reports", products: "Products", settings: "Settings",
+  warehouse: "Warehouse", allWarehouses: "All warehouses", product: "Product", allProducts: "All products", quantity: "Quantity", unit: "Unit",
+  category: "Category", min: "Min. stock", total: "Total", status: "Status", note: "Note (optional)", noteCol: "Note", date: "Date",
+  type: "Type", actor: "Person", machine: "Machine", before: "Before", after: "After", from: "From", to: "To", source: "From warehouse",
+  dest: "To warehouse", active: "Active", inactive: "Inactive", save: "Save", cancel: "Cancel", add: "Add product", edit: "Edit", remove: "Remove",
+  critical: "Low stock", noCritical: "No products at a critical level.", usedToday: "Used today", lowCount: "Low / out", warehouses: "Warehouses",
+  stockOk: "In stock", stockLow: "Low", stockOut: "Out", noWarehouses: "No warehouses yet. They come from DTF Monitor.",
+  dtfOff: "DTF Monitor is not connected, so the warehouse list cannot update.", machines: "Machines", noMachines: "No machines",
+  refresh: "Refresh from DTF Monitor", removedWh: "Removed in DTF Monitor", selected: "Selected", tapHint: "Tap products to add them to the list.",
+  saveIn: (n: number) => `Add ${n} item(s) to stock`, saveOut: (n: number) => `Record ${n} item(s) as used`, saved: "Saved. Stock updated.",
+  already: "This was already saved. Stock did not change twice.", transferDo: "Transfer", transferred: "Transfer saved.",
+  reverse: "Reverse", reverseAsk: "Reverse this usage and put it back in stock?", reversed: "Reversed. Quantity is back in stock.",
+  kinds: { stock: "Stock in", consumption: "Used", transfer: "Transfer", reversal: "Reversal" } as Record<string, string>,
+  prev: "Previous", next: "Next", page: "Page", noRows: "No records.", records: "records", cancelledExcluded: "Reversed records are not included.",
+  apply: "Apply", csv: "Download CSV", print: "Print / PDF", allPeople: "All people", allMachines: "All machines", agent: "Agent", web: "Web",
+  categories: "Categories", categoriesSub: "DTF and UV are built in: a machine's Stock tab opens on its own type. Every machine can reach every category.", addCategory: "Add category", categoryName: "Category name",
+  rename: "Rename", del: "Delete", deleteAsk: (n: string) => `Delete the category "${n}"?`, productsCount: (n: number) => `${n} product(s)`,
+  defaultMin: "Default min. stock", perWarehouseMin: "Min. stock per warehouse", perWarehouseHint: "Leave empty to use the default.",
+  newProduct: "New product", editProduct: "Edit product", name: "Name", audit: "Activity log", action: "Action", detail: "Detail",
+  telegram: "Telegram", botToken: "Bot token", tokenSaved: "A token is saved. Leave empty to keep it.", tokenEnv: "The token comes from TELEGRAM_BOT_TOKEN.",
+  chatId: "Chat ID", enabled: "Enabled", summaryTime: "Daily report time (Texas)", tgLang: "Message language", sendTest: "Send test", sendSummary: "Send summary now",
+  sent: "Sent.", tgLog: "Recent notifications", attempts: "Attempts", loading: "Loading…", failed: "Failed",
+  liveData: "LIVE DATA", workspace: (w: string) => `${w} workspace`, hubKicker: "YOUR OPERATIONS HUB", hubTitle: "Every product, every move. In control.",
+  hubText: (w: string) => `Track inventory flow at ${w} in one place.`, hubAll: "Track inventory flow across every warehouse in one place.", health: "Stock health", healthOf: (h: number, n: number) => `${h} / ${n} at a healthy level`,
+  totalProducts: "Total products", activeCatalog: "Active product catalog", restock: "Restocking needed", allGood: "All stock is healthy", todayUse: "Today's consumption",
+  usageRecords: "Usage records", activeWh: "Active warehouses", perWarehouse: "Fed by DTF Monitor", weekly: "Weekly stock activity", last7: "Last 7 days · transactions",
+  firstMove: "Your first stock transaction will appear here.", asTable: "Show as table", priority: "Priority list", priorityHint: "At or below the minimum level", viewAll: "View all",
+  minimum: "Minimum", allClear: "Stock looks fine", inventory: "Stock inventory", inventorySub: "Live view of every product", recent: "Recent activity", recentSub: "Every stock move is recorded",
+  openHistory: "Open history", all: "All", search: "Search products…", day: "Day", ok: "OK",
+  subs: { overview: "Your inventory and machines at a glance.", in: "Add arriving goods to a warehouse.", out: "Record what was used.", transfer: "Move stock between warehouses.", history: "Every stock move, newest first.", report: "Consumption by date, product, person and machine.", products: "The products you track.", settings: "Telegram alerts and the activity log." } as Record<string, string>,
+  units: { bottle: "bottle", roll: "roll", pcs: "pcs", kg: "kg", liter: "liter", meter: "meter", box: "box" } as Record<string, string>,
+  err: {
+    insufficient_stock: (p: any) => `Not enough stock. Available: ${p.available}.`, invalid_quantity: "Enter a quantity above zero with at most two decimals.",
+    inactive_warehouse: "Select an active warehouse.", inactive_product: "Select an active product.", same_warehouse: "Source and destination must be different.",
+    not_reversible: "Record not found or already reversed.", unit_locked: "The unit of a product with history cannot change. Create a new product.",
+    invalid_date: "Select valid dates.", report_too_big: "Over 10,000 records. Select a shorter date range.", dtf_unreachable: "Could not reach DTF Monitor.",
+    forbidden: "You don't have stock management access.", invalid_category: "Enter a category name of up to 40 characters.", category_exists: "This category already exists.",
+    category_locked: "DTF and UV are tied to the machine types, so they cannot change.", category_in_use: (p: any) => `${p.count} product(s) use this category. Move them first.`,
+    invalid_product: "Check the name, category, unit and minimum quantity.",
+  } as Record<string, string | ((p: any) => string)>,
+};
+export type Strings = typeof en;
+
+const tr: Strings = {
+  ...en, title: "Stok Envanteri", overview: "Genel bakış", receive: "Stok girişi", use: "Stok çıkışı", transfer: "Transfer", history: "Hareketler",
+  report: "Raporlar", products: "Ürünler", settings: "Ayarlar",
+  warehouse: "Depo", allWarehouses: "Tüm depolar", product: "Ürün", allProducts: "Tüm ürünler", quantity: "Miktar", unit: "Birim",
+  category: "Kategori", min: "Min. stok", total: "Toplam", status: "Durum", note: "Not (isteğe bağlı)", noteCol: "Not", date: "Tarih",
+  type: "Tür", actor: "Kişi", machine: "Makine", before: "Önce", after: "Sonra", from: "Başlangıç", to: "Bitiş", source: "Kaynak depo",
+  dest: "Hedef depo", active: "Aktif", inactive: "Pasif", save: "Kaydet", cancel: "Vazgeç", add: "Ürün ekle", edit: "Düzenle", remove: "Kaldır",
+  critical: "Kritik stok", noCritical: "Kritik seviyede ürün yok.", usedToday: "Bugün kullanılan", lowCount: "Kritik / tükenen", warehouses: "Depolar",
+  stockOk: "Yeterli", stockLow: "Kritik", stockOut: "Tükendi", noWarehouses: "Henüz depo yok. Depolar DTF Monitor'den gelir.",
+  dtfOff: "DTF Monitor bağlı değil, depo listesi güncellenemiyor.", machines: "Makineler", noMachines: "Makine yok",
+  refresh: "DTF Monitor'den yenile", removedWh: "DTF Monitor'den kaldırılmış", selected: "Seçilenler", tapHint: "Listeye eklemek için ürünlere dokunun.",
+  saveIn: (n) => `${n} ürünü stoğa ekle`, saveOut: (n) => `${n} ürünü kullanıldı olarak kaydet`, saved: "Kaydedildi. Stok güncellendi.",
+  already: "Bu işlem zaten kaydedildi. Stok ikinci kez değişmedi.", transferDo: "Transfer et", transferred: "Transfer kaydedildi.",
+  reverse: "İptal et", reverseAsk: "Bu tüketim iptal edilip stoğa geri eklensin mi?", reversed: "İptal edildi. Miktar stoğa geri eklendi.",
+  kinds: { stock: "Giriş", consumption: "Tüketim", transfer: "Transfer", reversal: "İptal" },
+  prev: "Önceki", next: "Sonraki", page: "Sayfa", noRows: "Kayıt yok.", records: "kayıt", cancelledExcluded: "İptal edilmiş kayıtlar dahil edilmez.",
+  apply: "Uygula", csv: "CSV indir", print: "Yazdır / PDF", allPeople: "Tüm kişiler", allMachines: "Tüm makineler", agent: "Agent", web: "Web",
+  categories: "Kategoriler", categoriesSub: "DTF ve UV sabittir: makinenin Stock sekmesi kendi türüyle açılır. Her makine tüm kategorilere ulaşabilir.", addCategory: "Kategori ekle", categoryName: "Kategori adı",
+  rename: "Yeniden adlandır", del: "Sil", deleteAsk: (n) => `"${n}" kategorisi silinsin mi?`, productsCount: (n) => `${n} ürün`,
+  defaultMin: "Varsayılan min. stok", perWarehouseMin: "Depoya özel min. stok", perWarehouseHint: "Varsayılanı kullanmak için boş bırakın.",
+  newProduct: "Yeni ürün", editProduct: "Ürünü düzenle", name: "Ad", audit: "İşlem geçmişi", action: "İşlem", detail: "Detay",
+  telegram: "Telegram", botToken: "Bot tokeni", tokenSaved: "Kayıtlı bir token var. Korumak için boş bırakın.", tokenEnv: "Token TELEGRAM_BOT_TOKEN değişkeninden geliyor.",
+  chatId: "Sohbet ID", enabled: "Etkin", summaryTime: "Gün sonu rapor saati (Texas)", tgLang: "Mesaj dili", sendTest: "Test gönder", sendSummary: "Özeti şimdi gönder",
+  sent: "Gönderildi.", tgLog: "Son bildirimler", attempts: "Deneme", loading: "Yükleniyor…", failed: "Başarısız",
+  liveData: "CANLI VERİ", workspace: (w) => `${w} çalışma alanı`, hubKicker: "OPERASYON MERKEZİNİZ", hubTitle: "Her ürün, her hareket. Kontrol sizde.",
+  hubText: (w) => `${w} stok akışını tek yerden takip edin.`, hubAll: "Tüm depoların stok akışını tek yerden takip edin.", health: "Stok sağlığı", healthOf: (h, n) => `${h} / ${n} yeterli seviyede`,
+  totalProducts: "Toplam ürün çeşidi", activeCatalog: "Aktif ürün kataloğu", restock: "Tedarik planlaması gerekiyor", allGood: "Tüm stoklar yeterli", todayUse: "Bugünkü tüketim",
+  usageRecords: "Tüketim kaydı", activeWh: "Aktif depo", perWarehouse: "DTF Monitor'den gelir", weekly: "Haftalık stok hareketi", last7: "Son 7 gün · işlem sayısı",
+  firstMove: "İlk stok hareketiniz burada görünecek.", asTable: "Tablo olarak göster", priority: "Öncelik listesi", priorityHint: "Minimum seviyeye ulaşan ürünler", viewAll: "Tümü",
+  minimum: "Minimum", allClear: "Stoklar yolunda", inventory: "Stok envanteri", inventorySub: "Tüm ürünlerin anlık görünümü", recent: "Son hareketler", recentSub: "Her stok işlemi kayıt altında",
+  openHistory: "Geçmişi aç", all: "Tümü", search: "Ürün ara…", day: "Gün", ok: "Tamam",
+  subs: { overview: "Stoklarınızın ve makinelerinizin güncel durumu.", in: "Gelen ürünleri depoya ekleyin.", out: "Kullanılanları kaydedin.", transfer: "Depolar arasında stok taşıyın.", history: "Tüm stok hareketleri, en yenisi üstte.", report: "Tüketimi tarih, ürün, kişi ve makineye göre inceleyin.", products: "Takip ettiğiniz ürünler.", settings: "Telegram bildirimleri ve işlem geçmişi." },
+  units: { bottle: "şişe", roll: "rulo", pcs: "adet", kg: "kg", liter: "litre", meter: "metre", box: "kutu" },
+  err: {
+    insufficient_stock: (p) => `Yetersiz stok. Mevcut: ${p.available}.`, invalid_quantity: "Sıfırdan büyük, en fazla iki ondalıklı miktar girin.",
+    inactive_warehouse: "Aktif bir depo seçin.", inactive_product: "Aktif bir ürün seçin.", same_warehouse: "Kaynak ve hedef depo farklı olmalı.",
+    not_reversible: "Kayıt bulunamadı veya zaten iptal edilmiş.", unit_locked: "Hareket geçmişi olan ürünün birimi değiştirilemez. Yeni ürün tanımlayın.",
+    invalid_date: "Geçerli tarih seçin.", report_too_big: "10.000 kayıt sınırı aşıldı. Daha kısa tarih aralığı seçin.", dtf_unreachable: "DTF Monitor'e ulaşılamadı.",
+    forbidden: "Stok yönetimi yetkiniz yok.", invalid_category: "En fazla 40 karakterlik bir kategori adı girin.", category_exists: "Bu kategori zaten var.",
+    category_locked: "DTF ve UV makine türlerine bağlı olduğu için değiştirilemez.", category_in_use: (p) => `Bu kategoriyi ${p.count} ürün kullanıyor. Önce onları taşıyın.`,
+    invalid_product: "Ad, kategori, birim ve minimum miktarı kontrol edin.",
+  },
+};
+
+const es: Strings = {
+  ...en, title: "Inventario", overview: "Resumen", receive: "Entrada", use: "Salida", transfer: "Transferencia", history: "Movimientos",
+  report: "Informes", products: "Productos", settings: "Ajustes",
+  warehouse: "Almacén", allWarehouses: "Todos los almacenes", product: "Producto", allProducts: "Todos los productos", quantity: "Cantidad", unit: "Unidad",
+  category: "Categoría", min: "Stock mín.", total: "Total", status: "Estado", note: "Nota (opcional)", noteCol: "Nota", date: "Fecha",
+  type: "Tipo", actor: "Persona", machine: "Máquina", before: "Antes", after: "Después", from: "Desde", to: "Hasta", source: "Almacén de origen",
+  dest: "Almacén de destino", active: "Activo", inactive: "Inactivo", save: "Guardar", cancel: "Cancelar", add: "Añadir producto", edit: "Editar", remove: "Quitar",
+  critical: "Stock crítico", noCritical: "No hay productos en nivel crítico.", usedToday: "Usado hoy", lowCount: "Crítico / agotado", warehouses: "Almacenes",
+  stockOk: "Suficiente", stockLow: "Crítico", stockOut: "Agotado", noWarehouses: "Aún no hay almacenes. Vienen de DTF Monitor.",
+  dtfOff: "DTF Monitor no está conectado; la lista de almacenes no se actualiza.", machines: "Máquinas", noMachines: "Sin máquinas",
+  refresh: "Actualizar desde DTF Monitor", removedWh: "Eliminado en DTF Monitor", selected: "Seleccionados", tapHint: "Toque los productos para añadirlos a la lista.",
+  saveIn: (n) => `Añadir ${n} producto(s) al stock`, saveOut: (n) => `Registrar ${n} producto(s) como usados`, saved: "Guardado. Stock actualizado.",
+  already: "Esto ya se guardó. El stock no cambió dos veces.", transferDo: "Transferir", transferred: "Transferencia guardada.",
+  reverse: "Anular", reverseAsk: "¿Anular este consumo y devolverlo al stock?", reversed: "Anulado. La cantidad volvió al stock.",
+  kinds: { stock: "Entrada", consumption: "Consumo", transfer: "Transferencia", reversal: "Anulación" },
+  prev: "Anterior", next: "Siguiente", page: "Página", noRows: "Sin registros.", records: "registros", cancelledExcluded: "No se incluyen los registros anulados.",
+  apply: "Aplicar", csv: "Descargar CSV", print: "Imprimir / PDF", allPeople: "Todas las personas", allMachines: "Todas las máquinas", agent: "Agente", web: "Web",
+  categories: "Categorías", categoriesSub: "DTF y UV son fijos: la pestaña Stock de cada máquina abre en su tipo. Todas las máquinas ven todas las categorías.", addCategory: "Añadir categoría", categoryName: "Nombre de la categoría",
+  rename: "Renombrar", del: "Eliminar", deleteAsk: (n) => `¿Eliminar la categoría "${n}"?`, productsCount: (n) => `${n} producto(s)`,
+  defaultMin: "Stock mín. por defecto", perWarehouseMin: "Stock mín. por almacén", perWarehouseHint: "Déjelo vacío para usar el valor por defecto.",
+  newProduct: "Nuevo producto", editProduct: "Editar producto", name: "Nombre", audit: "Registro de actividad", action: "Acción", detail: "Detalle",
+  telegram: "Telegram", botToken: "Token del bot", tokenSaved: "Hay un token guardado. Déjelo vacío para conservarlo.", tokenEnv: "El token viene de TELEGRAM_BOT_TOKEN.",
+  chatId: "ID del chat", enabled: "Activado", summaryTime: "Hora del informe diario (Texas)", tgLang: "Idioma de los mensajes", sendTest: "Enviar prueba", sendSummary: "Enviar resumen ahora",
+  sent: "Enviado.", tgLog: "Notificaciones recientes", attempts: "Intentos", loading: "Cargando…", failed: "Error",
+  liveData: "DATOS EN VIVO", workspace: (w) => `Espacio de ${w}`, hubKicker: "SU CENTRO DE OPERACIONES", hubTitle: "Cada producto, cada movimiento. Bajo control.",
+  hubText: (w) => `Siga el flujo de inventario de ${w} en un solo lugar.`, hubAll: "Siga el flujo de inventario de todos los almacenes en un solo lugar.", health: "Salud del stock", healthOf: (h, n) => `${h} / ${n} en nivel adecuado`,
+  totalProducts: "Total de productos", activeCatalog: "Catálogo activo", restock: "Hace falta reponer", allGood: "Todo el stock es suficiente", todayUse: "Consumo de hoy",
+  usageRecords: "Registros de consumo", activeWh: "Almacenes activos", perWarehouse: "Vienen de DTF Monitor", weekly: "Actividad semanal", last7: "Últimos 7 días · movimientos",
+  firstMove: "Su primer movimiento aparecerá aquí.", asTable: "Ver como tabla", priority: "Lista de prioridad", priorityHint: "En el nivel mínimo o por debajo", viewAll: "Ver todo",
+  minimum: "Mínimo", allClear: "El stock está bien", inventory: "Inventario", inventorySub: "Vista en vivo de todos los productos", recent: "Actividad reciente", recentSub: "Cada movimiento queda registrado",
+  openHistory: "Abrir historial", all: "Todo", search: "Buscar productos…", day: "Día", ok: "Listo",
+  subs: { overview: "Su inventario y máquinas de un vistazo.", in: "Añada al almacén lo que llega.", out: "Registre lo que se usó.", transfer: "Mueva stock entre almacenes.", history: "Todos los movimientos, los más recientes primero.", report: "Consumo por fecha, producto, persona y máquina.", products: "Los productos que controla.", settings: "Alertas de Telegram y registro de actividad." },
+  units: { bottle: "botella", roll: "rollo", pcs: "uds", kg: "kg", liter: "litro", meter: "metro", box: "caja" },
+  err: {
+    insufficient_stock: (p) => `Stock insuficiente. Disponible: ${p.available}.`, invalid_quantity: "Introduzca una cantidad mayor que cero con hasta dos decimales.",
+    inactive_warehouse: "Seleccione un almacén activo.", inactive_product: "Seleccione un producto activo.", same_warehouse: "El origen y el destino deben ser diferentes.",
+    not_reversible: "Registro no encontrado o ya anulado.", unit_locked: "La unidad de un producto con historial no se puede cambiar. Cree un producto nuevo.",
+    invalid_date: "Seleccione fechas válidas.", report_too_big: "Más de 10.000 registros. Seleccione un periodo más corto.", dtf_unreachable: "No se pudo acceder a DTF Monitor.",
+    forbidden: "No tiene permiso para gestionar el stock.", invalid_category: "Introduzca un nombre de categoría de hasta 40 caracteres.", category_exists: "Esta categoría ya existe.",
+    category_locked: "DTF y UV dependen del tipo de máquina y no se pueden cambiar.", category_in_use: (p) => `${p.count} producto(s) usan esta categoría. Muévalos primero.`,
+    invalid_product: "Revise el nombre, la categoría, la unidad y el mínimo.",
+  },
+};
+
+export const STRINGS: Record<Lang, Strings> = { en, tr, es };

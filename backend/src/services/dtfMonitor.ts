@@ -56,3 +56,15 @@ export async function fetchWarehouseSplit(
   }
   return out;
 }
+
+export interface FloorMachine { name: string; warehouse: string; type: string }
+
+// Every warehouse and machine on the floor, as DTF Monitor has them right now.
+export async function fetchFloorMachines(): Promise<{ warehouses: string[]; machines: FloorMachine[] }> {
+  if (!env.dtfMonitorUrl || !env.dtfMonitorApiKey) throw new Error("DTF Monitor integration is not configured");
+  const url = `${env.dtfMonitorUrl.replace(/\/$/, "")}/api/integrations/warehouses`;
+  const resp = await fetch(url, { headers: { "X-API-Key": env.dtfMonitorApiKey }, signal: AbortSignal.timeout(10000) });
+  if (!resp.ok) throw new Error(`DTF Monitor responded ${resp.status}`);
+  const data = (await resp.json()) as { warehouses?: string[]; machines?: FloorMachine[] };
+  return { warehouses: data.warehouses || [], machines: data.machines || [] };
+}

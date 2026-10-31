@@ -14,6 +14,7 @@ import StaffPanel from "../components/StaffPanel";
 import FinancePanel from "../components/FinancePanel";
 import ChasePanel from "../components/ChasePanel";
 import FloorQueuePanel from "../components/FloorQueuePanel";
+import StockPanel from "../components/stock/StockPanel";
 
 export default function OrdersPage() {
   const { user, logout } = useAuth();
@@ -34,7 +35,8 @@ export default function OrdersPage() {
   const isFinance = activeView === "finance";
   const isChase = activeView === "chase";
   const isFloor = activeView === "floor";
-  const isPanel = isReports || isSheets || isStaff || isFinance || isChase || isFloor;
+  const isStock = activeView === "stock";
+  const isPanel = isReports || isSheets || isStaff || isFinance || isChase || isFloor || isStock;
   const canReports = user?.role === "ADMIN" || !!user?.canViewReports;
   const canSheets = user?.role === "ADMIN" || !!user?.canViewSheets;
   const canStaff = user?.role === "ADMIN" || !!user?.canViewStaff;
@@ -150,7 +152,7 @@ export default function OrdersPage() {
 
       <div className="main">
         <header className="topbar">
-          <div className="topbar-title">{isReports ? "Reports" : isSheets ? "Sheets" : isStaff ? "Staff" : isFinance ? "Finance" : view.label}</div>
+          <div className="topbar-title">{isReports ? "Reports" : isSheets ? "Sheets" : isStaff ? "Staff" : isFinance ? "Finance" : isStock ? "Stock Inventory" : view.label}</div>
           {!isPanel && (
             <>
               <input
@@ -220,6 +222,8 @@ export default function OrdersPage() {
           <FinancePanel />
         ) : isChase ? (
           <ChasePanel isAdmin={user?.role === "ADMIN"} />
+        ) : isStock ? (
+          <StockPanel />
         ) : isFloor ? (
           <FloorQueuePanel onOpenInOrders={(code) => { setActiveView("all"); setFacet(emptyFacet); setStatusFilter(""); setSearch(code); setPage(1); }} />
         ) : (
