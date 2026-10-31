@@ -6,7 +6,7 @@ import { env } from "../env";
 import { requireAuth, requireRole, requireStockManager } from "../middleware/auth";
 import { checkKey } from "./integrations";
 import {
-  addCategory, applyBatch, audit, dateBounds, deleteCategory, ensureWarehouse, inventory, listCategories, overview, renameCategory, reverseConsumption, setWarehouseMins, StockError,
+  addCategory, applyBatch, audit, dateBounds, deleteCategory, ensureWarehouse, inventory, listCategories, overview, renameCategory, adjustStock, deleteProduct, reverseMovement, setWarehouseMins, StockError,
   syncIfStale, syncWarehouses, transferStock, undoBatch, UNDO_MINUTES, UNITS,
 } from "../services/stock";
 import { buildSummary, getTelegramCfg, saveTelegramCfg, stockMessage, telegramSend } from "../services/stockTelegram";
@@ -85,7 +85,17 @@ stockRouter.post("/transfer", requireStockManager, route(async (req, res) => {
 }));
 
 stockRouter.post("/movements/:id/reverse", requireStockManager, route(async (req, res) => {
-  await reverseConsumption(Number(req.params.id), { actor: await actorName(req), source: "web" });
+  await reverseMovement(Number(req.params.id), { actor: await actorName(req), source: "web" });
+  res.json({ status: "success" });
+}));
+
+const adjustSchema = z.object({
+  warehouseId: z.number().int().positive(), productId: z.number().int().positive(),
+  quantity: z.union([z.string(), z.number()]), note: z.string().optional(),
+});
+stockRouter.post("/adjust", requireStockManager, route(async (req, res) => {
+  const b = adjustSchema.parse(req.body);
+  await adjustStock(b.warehouseId, b.productId, b.quantity, b.note, { actor: await actorName(req), source: "web" });
   res.json({ status: "success" });
 }));
 
@@ -148,7 +158,7 @@ function parseMin(v: string | number): string {
 }
 
 stockRouter.get("/products", route(async (_req, res) => {
-  const rows = await prisma.stockProduct.findMany({ orderBy: [{ active: "desc" }, { category: "asc" }, { name: "asc" }] });
+  const rows = await prisma.stockProduct.findMany({ where: { deletedAt: null }, orderBy: [{ active: "desc" }, { category: "asc" }, { name: "asc" }] });
   res.json({ status: "success", rows: rows.map((p) => ({ ...p, minStock: Number(p.minStock) })) });
 }));
 
@@ -164,7 +174,7 @@ stockRouter.put("/products/:id", requireStockManager, route(async (req, res) => 
   const id = Number(req.params.id);
   const b = productSchema.parse(req.body);
   await checkCategory(b.category);
-  const prev = await prisma.stockProduct.findUnique({ where: { id } });
+  const prev = await prisma.stockProduct.findFirst({ where: { id, deletedAt: null } });
   if (!prev) throw new StockError("not_found", "Product not found.", {}, 404);
   if (prev.unit !== b.unit && await prisma.stockMovement.count({ where: { productId: id } })) {
     throw new StockError("unit_locked", "The unit of a product with history cannot change. Create a new product.");
@@ -172,6 +182,10 @@ stockRouter.put("/products/:id", requireStockManager, route(async (req, res) => 
   await prisma.stockProduct.update({ where: { id }, data: { ...b, minStock: parseMin(b.minStock) } });
   await audit(await actorName(req), "product.save", `#${id} ${b.name}`);
   res.json({ status: "success" });
+}));
+
+stockRouter.delete("/products/:id", requireStockManager, route(async (req, res) => {
+  res.json({ status: "success", result: await deleteProduct(Number(req.params.id), await actorName(req)) });
 }));
 
 const minsSchema = z.object({ mins: z.record(z.union([z.string(), z.number(), z.null()])) });

@@ -282,8 +282,8 @@ function OverviewTab({ data, selected, onSelect, goTo, onSync, syncing, t, lang 
 }
 
 // Stock in / out: tap product cards into a list, one transaction for the whole list.
-function MoveTab({ type, warehouses, categories, initial, t, onDone }: { type: "in" | "out"; warehouses: Warehouse[]; categories: string[]; initial: number; t: Strings; onDone: () => void }) {
-  const [warehouseId, setWarehouseId] = useState(initial || warehouses[0]?.id || 0);
+function MoveTab({ type, warehouses, categories, t, onDone }: { type: "in" | "out"; warehouses: Warehouse[]; categories: string[]; t: Strings; onDone: () => void }) {
+  const [warehouseId, setWarehouseId] = useState(0);   // always asked first: a preselected one got stock booked to the wrong place
   const [picked, setPicked] = useState<Record<number, string>>({});
   const [note, setNote] = useState("");
   const [cat, setCat] = useState("");
@@ -315,15 +315,33 @@ function MoveTab({ type, warehouses, categories, initial, t, onDone }: { type: "
     if (next[p.id]) delete next[p.id]; else next[p.id] = "1";
     return next;
   });
+  const chooseWarehouse = (id: number) => { setWarehouseId(id); setPicked({}); setNote(""); setMsg({ text: "", ok: false }); requestId.current = newRequestId(); };
+  if (!warehouseId) {
+    return (
+      <section className="sk-panel">
+        <PanelHead title={t.pickWarehouse} sub={t.pickWarehouseSub} />
+        <div className="sk-panel-body sk-whpick">
+          {warehouses.map((w) => (
+            <button key={w.id} onClick={() => chooseWarehouse(w.id)}>
+              <span className="sk-pi"><Icon name="home" /></span>
+              <span><b>{w.name}</b><small>{t.machines}: {w.machines.length}</small></span>
+              <Icon name="chevron" />
+            </button>
+          ))}
+        </div>
+        {!warehouses.length && <div className="sk-empty">{t.noWarehouses}</div>}
+      </section>
+    );
+  }
   return (
     <div className="sk-move">
       <div>
+        <div className="sk-whnow">
+          <span className="sk-pi"><Icon name="home" /></span>
+          <div><small>{t.warehouse}</small><b>{warehouses.find((w) => w.id === warehouseId)?.name}</b></div>
+          <button className="sk-btn small" onClick={() => chooseWarehouse(0)}>{t.change}</button>
+        </div>
         <div className="sk-filter">
-          <label className="sk-field">{t.warehouse}
-            <select className="sk-select" value={warehouseId} onChange={(e) => { setWarehouseId(Number(e.target.value)); setPicked({}); setMsg({ text: "", ok: false }); }}>
-              {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
-            </select>
-          </label>
           <div className="sk-chips" style={{ alignSelf: "flex-end", paddingBottom: 6 }}>
             {[["", t.all], ...categories.map((c) => [c, c])].map(([k, l]) => <button key={k} className={cat === k ? "on" : ""} onClick={() => setCat(k)}>{l}</button>)}
           </div>
@@ -403,6 +421,40 @@ function TransferTab({ warehouses, products, t, onDone }: { warehouses: Warehous
   );
 }
 
+function AdjustTab({ warehouses, products, initial, t, onDone }: { warehouses: Warehouse[]; products: OverviewProduct[]; initial: number; t: Strings; onDone: () => void }) {
+  const [f, setF] = useState({ warehouseId: initial || warehouses[0]?.id || 0, productId: products[0]?.id ?? 0, quantity: "", note: "" });
+  const [msg, setMsg] = useState({ text: "", ok: false });
+  const product = products.find((p) => p.id === f.productId);
+  const current = product?.levels[f.warehouseId] ?? 0;
+  const save = useMutation({
+    mutationFn: () => api.post("/stock/adjust", f),
+    onSuccess: () => { setF({ ...f, quantity: "", note: "" }); setMsg({ text: t.adjusted, ok: true }); onDone(); },
+    onError: (e) => setMsg({ text: errText(e, t), ok: false }),
+  });
+  return (
+    <section className="sk-panel sk-narrow">
+      <PanelHead title={t.adjust} sub={t.adjustHint} />
+      <div className="sk-form">
+        <label className="sk-field">{t.warehouse}
+          <select className="sk-select" value={f.warehouseId} onChange={(e) => setF({ ...f, warehouseId: Number(e.target.value) })}>
+            {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+          </select>
+        </label>
+        <label className="sk-field">{t.product}
+          <select className="sk-select" value={f.productId} onChange={(e) => setF({ ...f, productId: Number(e.target.value) })}>
+            {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+        </label>
+        <label className="sk-field">{t.inSystem}<input className="sk-input" disabled value={`${n2(current)} ${product ? unitOf(t, product.unit) : ""}`} /></label>
+        <label className="sk-field">{t.actualCount}<input className="sk-input" inputMode="decimal" value={f.quantity} onChange={(e) => setF({ ...f, quantity: e.target.value })} /></label>
+        <label className="sk-field full">{t.reason}<input className="sk-input" maxLength={255} value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></label>
+        <div className="full"><button className="sk-btn primary" disabled={!f.quantity.trim() || save.isPending} onClick={() => save.mutate()}><Icon name="check" /> {t.adjustDo}</button></div>
+        {msg.text && <div className="full"><Message {...msg} /></div>}
+      </div>
+    </section>
+  );
+}
+
 function HistoryTab({ warehouses, selected, onSelect, canManage, t, lang, onDone }: {
   warehouses: Warehouse[]; selected: number; onSelect: (id: number) => void; canManage: boolean; t: Strings; lang: Lang; onDone: () => void;
 }) {
@@ -433,8 +485,8 @@ function HistoryTab({ warehouses, selected, onSelect, canManage, t, lang, onDone
                   <td>{when(m.createdAt, lang)}</td><td>{m.warehouse}</td><td>{m.product}</td><td>{t.kinds[m.kind] ?? m.kind}</td>
                   <td className="num">{m.type === "out" ? "−" : "+"}{n2(m.quantity)} {unitOf(t, m.unit)}</td>
                   <td className="num">{n2(m.before)}</td><td className="num">{n2(m.after)}</td><td>{m.actor}</td><td>{m.machine}</td><td>{m.note}</td>
-                  <td>{canManage && m.kind === "consumption" && !m.reversedAt && (
-                    <button className="sk-btn small" disabled={reverse.isPending} onClick={() => { if (confirm(t.reverseAsk)) reverse.mutate(m.id); }}>{t.reverse}</button>
+                  <td>{canManage && (m.kind === "consumption" || m.kind === "stock") && !m.reversedAt && (
+                    <button className="sk-btn small" disabled={reverse.isPending} onClick={() => { if (confirm(m.kind === "stock" ? t.reverseInAsk : t.reverseAsk)) reverse.mutate(m.id); }}>{t.reverse}</button>
                   )}</td>
                 </tr>
               ))}
@@ -577,6 +629,7 @@ function ProductsTab({ data, t, onDone }: { data: Overview; t: Strings; onDone: 
   const [form, setForm] = useState<typeof EMPTY_PRODUCT | null>(null);
   const [mins, setMins] = useState<Record<number, string>>({});
   const [error, setError] = useState("");
+  const [listError, setListError] = useState("");
   const [cat, setCat] = useState("");
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "name", dir: 1 });
@@ -591,6 +644,11 @@ function ProductsTab({ data, t, onDone }: { data: Overview; t: Strings; onDone: 
     },
     onSuccess: () => { setForm(null); setError(""); q.refetch(); onDone(); },
     onError: (e) => setError(errText(e, t)),
+  });
+  const remove = useMutation({
+    mutationFn: (id: number) => api.del(`/stock/products/${id}`),
+    onSuccess: () => { setListError(""); q.refetch(); onDone(); },
+    onError: (e) => setListError(errText(e, t)),
   });
   const rows = q.data?.rows ?? [];
   const needle = search.trim().toLowerCase();
@@ -645,6 +703,7 @@ function ProductsTab({ data, t, onDone }: { data: Overview; t: Strings; onDone: 
           </div>
         </section>
       )}
+      <Message text={listError} />
       <div className="sk-filter sk-tools">
         <div className="sk-chips">
           <button className={cat ? "" : "on"} onClick={() => setCat("")}>{t.all} {rows.length}</button>
@@ -667,7 +726,7 @@ function ProductsTab({ data, t, onDone }: { data: Overview; t: Strings; onDone: 
                   const own = data.products.find((x) => x.id === p.id)?.mins ?? {};
                   setMins(Object.fromEntries(Object.entries(own).map(([w, v]) => [w, String(v)])));
                   setError(""); setForm({ ...p, minStock: String(p.minStock) });
-                }}>{t.edit}</button></td>
+                }}>{t.edit}</button> <button className="sk-btn small" disabled={remove.isPending} onClick={() => { if (confirm(t.deleteProductAsk(p.name))) remove.mutate(p.id); }}>{t.del}</button></td>
               </tr>
             ))}</tbody>
           </table>
@@ -740,7 +799,7 @@ function SettingsTab({ isAdmin, t, lang }: { isAdmin: boolean; t: Strings; lang:
   );
 }
 
-type Tab = "overview" | "in" | "out" | "transfer" | "history" | "report" | "products" | "settings";
+type Tab = "overview" | "in" | "out" | "transfer" | "adjust" | "history" | "report" | "products" | "settings";
 
 export default function StockPanel() {
   const [lang, setLang] = useState<Lang>(loadLang);
@@ -761,7 +820,7 @@ export default function StockPanel() {
   const current = activeWarehouses.find((w) => w.id === selected)?.id ?? 0;
   const tabs: [Tab, string, string][] = [
     ["overview", t.overview, "grid"],
-    ...(data?.canManage ? [["in", t.receive, "in"], ["out", t.use, "out"], ["transfer", t.transfer, "swap"]] as [Tab, string, string][] : []),
+    ...(data?.canManage ? [["in", t.receive, "in"], ["out", t.use, "out"], ["transfer", t.transfer, "swap"], ["adjust", t.adjust, "check"]] as [Tab, string, string][] : []),
     ["history", t.history, "list"], ["report", t.report, "chart"],
     ...(data?.canManage ? [["products", t.products, "tag"], ["settings", t.settings, "gear"]] as [Tab, string, string][] : []),
   ];
@@ -791,8 +850,9 @@ export default function StockPanel() {
         <>
           {tab === "overview" && <OverviewTab data={data} selected={current} onSelect={setSelected} goTo={setTab} onSync={() => sync.mutate()} syncing={sync.isPending} t={t} lang={lang} />}
           {tab === "overview" && <Message text={syncMsg} />}
-          {(tab === "in" || tab === "out") && <MoveTab key={tab} type={tab} warehouses={activeWarehouses} categories={data.categories} initial={current} t={t} onDone={refresh} />}
+          {(tab === "in" || tab === "out") && <MoveTab key={tab} type={tab} warehouses={activeWarehouses} categories={data.categories} t={t} onDone={refresh} />}
           {tab === "transfer" && <TransferTab warehouses={activeWarehouses} products={data.products} t={t} onDone={refresh} />}
+          {tab === "adjust" && <AdjustTab warehouses={activeWarehouses} products={data.products} initial={current} t={t} onDone={refresh} />}
           {tab === "history" && <HistoryTab warehouses={data.warehouses} selected={selected} onSelect={setSelected} canManage={data.canManage} t={t} lang={lang} onDone={refresh} />}
           {tab === "report" && <ReportTab warehouses={data.warehouses} products={data.products} t={t} lang={lang} />}
           {tab === "products" && <ProductsTab data={data} t={t} onDone={refresh} />}

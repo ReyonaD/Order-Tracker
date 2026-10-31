@@ -228,17 +228,19 @@ export async function transferStock(sourceId: number, destId: number, productId:
 }
 
 async function reverseOne(tx: Tx, id: number, who: Who, tg: TelegramCfg | null) {
-  const claimed = await tx.stockMovement.updateMany({ where: { id, kind: "consumption", reversedAt: null }, data: { reversedAt: new Date() } });
+  const claimed = await tx.stockMovement.updateMany({ where: { id, kind: { in: ["consumption", "stock"] }, reversedAt: null }, data: { reversedAt: new Date() } });
   if (!claimed.count) throw new StockError("not_reversible", "Record not found or already reversed.", {}, 404);
   const m = await tx.stockMovement.findUniqueOrThrow({ where: { id }, include: { product: true, warehouse: true } });
-  const { before, after } = await changeLevel(tx, m.warehouseId, m.productId, "in", m.quantity.toFixed(2), m.product.unit);
+  // Used goods go back in; a wrong stock entry comes out again (refused if it is already gone).
+  const type = m.kind === "stock" ? "out" : "in";
+  const { before, after } = await changeLevel(tx, m.warehouseId, m.productId, type, m.quantity.toFixed(2), m.product.unit);
   await tx.stockMovement.create({
     data: {
-      warehouseId: m.warehouseId, productId: m.productId, type: "in", kind: "reversal", quantity: m.quantity, before, after,
+      warehouseId: m.warehouseId, productId: m.productId, type, kind: "reversal", quantity: m.quantity, before, after,
       note: `Reversal of #${id}`, actor: who.actor, machine: who.machine || "", source: who.source || "web",
     },
   });
-  if (tg) {
+  if (tg && m.kind === "consumption") {
     await tx.stockNotification.create({
       data: {
         eventKey: `reversal:${id}`,
@@ -250,12 +252,36 @@ async function reverseOne(tx: Tx, id: number, who: Who, tg: TelegramCfg | null) 
   }
 }
 
-/** Manager's reversal of one consumption record. */
-export async function reverseConsumption(id: number, who: Who) {
+/** Manager's reversal of one usage or stock-in record. */
+export async function reverseMovement(id: number, who: Who) {
   const tg = await getTelegramCfg(true);
   await prisma.$transaction(async (tx) => {
     await reverseOne(tx, id, who, tg);
-    await audit(who.actor, "consumption.reverse", `#${id}`, tx);
+    await audit(who.actor, "movement.reverse", `#${id}`, tx);
+  }, TX_OPTS);
+}
+
+/** Set a level to what is really on the shelf. The difference is a correction, so it never
+ *  counts as usage and stays out of the consumption reports. */
+export async function adjustStock(warehouseId: number, productId: number, count: unknown, note: unknown, who: Who) {
+  const raw = String(count ?? "").trim().replace(",", ".");
+  if (!/^\d{1,7}(\.\d{1,2})?$/.test(raw)) throw new StockError("invalid_quantity", "Enter a quantity with at most two decimals.");
+  const target = new Prisma.Decimal(raw);
+  const text = checkNote(note);
+  const tg = await getTelegramCfg(true);
+  await prisma.$transaction(async (tx) => {
+    const warehouse = await activeWarehouse(tx, warehouseId);
+    const product = await tx.stockProduct.findFirst({ where: { id: productId, active: true } });
+    if (!product) throw new StockError("inactive_product", "Select an active product.");
+    await tx.$executeRaw`INSERT INTO "StockLevel" ("warehouseId", "productId", "quantity") VALUES (${warehouseId}, ${productId}, 0) ON CONFLICT DO NOTHING`;
+    const rows = await tx.$queryRaw<{ quantity: string }[]>`SELECT "quantity"::text AS quantity FROM "StockLevel" WHERE "warehouseId" = ${warehouseId} AND "productId" = ${productId} FOR UPDATE`;
+    const delta = target.minus(rows[0].quantity);
+    if (delta.isZero()) throw new StockError("no_change", "The quantity is already the same.");
+    await recordMove(tx, {
+      warehouse, product, quantity: delta.abs().toFixed(2), type: delta.isPositive() ? "in" : "out",
+      kind: "adjustment", note: text, who, tg,
+    });
+    await audit(who.actor, "stock.adjust", `${warehouse.name} / ${product.name} / ${rows[0].quantity} → ${target.toFixed(2)}`, tx);
   }, TX_OPTS);
 }
 
@@ -289,6 +315,27 @@ export async function setWarehouseMins(productId: number, mins: Record<string, s
       });
     }
     await audit(actor, "product.mins", `#${productId}`, tx);
+  }, TX_OPTS);
+}
+
+/** Delete a product. Stock must be at zero first. Without movements it is really deleted;
+ *  with movements it only leaves the lists, because reports and history point at it. */
+export async function deleteProduct(id: number, actor: string): Promise<"deleted" | "archived"> {
+  return prisma.$transaction(async (tx) => {
+    const p = await tx.stockProduct.findFirst({ where: { id, deletedAt: null } });
+    if (!p) throw new StockError("not_found", "Product not found.", {}, 404);
+    const stock = await tx.stockLevel.aggregate({ where: { productId: id }, _sum: { quantity: true } });
+    const left = Number(stock._sum.quantity ?? 0);
+    if (left > 0) throw new StockError("product_has_stock", `${left} still in stock. Bring it to zero first.`, { quantity: left });
+    const history = await tx.stockMovement.count({ where: { productId: id } });
+    if (history) {
+      await tx.stockProduct.update({ where: { id }, data: { active: false, deletedAt: new Date() } });
+    } else {
+      await tx.stockLevel.deleteMany({ where: { productId: id } });
+      await tx.stockProduct.delete({ where: { id } });
+    }
+    await audit(actor, "product.delete", `#${id} ${p.name}`, tx);
+    return history ? "archived" : "deleted";
   }, TX_OPTS);
 }
 
@@ -340,7 +387,7 @@ export async function renameCategory(from: string, to: unknown, actor: string) {
 export async function deleteCategory(name: string, actor: string) {
   const all = await listCategories();
   if (MACHINE_CATEGORIES.includes(name)) throw new StockError("category_locked", "DTF and UV are tied to the machine types, so they cannot change.");
-  const used = await prisma.stockProduct.count({ where: { category: name } });
+  const used = await prisma.stockProduct.count({ where: { category: name, deletedAt: null } });
   if (used) throw new StockError("category_in_use", `${used} product(s) use this category.`, { count: used });
   await prisma.$transaction(async (tx) => {
     await saveCategories(tx, all.filter((c) => c !== name));

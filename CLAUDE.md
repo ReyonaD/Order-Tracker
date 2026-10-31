@@ -162,7 +162,7 @@ tab, **visible to every OT user** (no second login). Changing stock from the web
 - **All quantity changes go through `services/stock.ts`**: one conditional `UPDATE … WHERE quantity >= q`
   (so no negative stock, also a DB CHECK) + a `StockMovement` with before/after. Lists are all-or-nothing.
   `StockBatch.requestKey` makes every list idempotent: retries/double clicks/the agent's outbox can't
-  deduct twice. Kinds: stock | consumption | transfer | reversal. Lock order is fixed (product id, warehouse id).
+  deduct twice. Kinds: stock | consumption | transfer | reversal | adjustment. History can reverse a consumption or a stock-in (refused if that stock is already gone). The "Correct stock" tab sets a level to the real count; an adjustment never counts as usage. Lock order is fixed (product id, warehouse id).
 - **Machine usage**: `/integrations/stock/{state,use,undo}` (`X-Api-Key`), called only by the DTF Monitor
   server, which adds the warehouse from its machine record. Agents have no login: machine + operator
   identify who. Undo = same machine within 15 min; later a manager reverses it in History.

@@ -311,6 +311,7 @@ model StockProduct {
   unit      String   // bottle | roll | pcs | kg | liter | meter | box
   minStock  Decimal  @default(3) @db.Decimal(10, 2)
   active    Boolean  @default(true)
+  deletedAt DateTime?   // removed from the lists; its movements stay for reports
   levels    StockLevel[]
   movements StockMovement[]
 }
