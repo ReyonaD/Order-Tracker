@@ -10,6 +10,7 @@ import {
   syncIfStale, syncWarehouses, transferStock, undoBatch, UNDO_MINUTES, UNITS,
 } from "../services/stock";
 import { buildSummary, getTelegramCfg, saveTelegramCfg, stockMessage, telegramSend } from "../services/stockTelegram";
+import { repostMenu } from "../services/stockBot";
 
 // Stock Inventory. Viewing needs only an OT login; changing stock from the web needs
 // canManageStock. Machine usage arrives through stockIntegrationRouter (the printer
@@ -260,12 +261,14 @@ async function activeTelegram() {
 stockRouter.post("/telegram/test", requireRole("ADMIN"), route(async (_req, res) => {
   const cfg = await activeTelegram();
   await telegramSend(cfg, stockMessage(cfg.lang, "test"));
+  await repostMenu(cfg);
   res.json({ status: "success" });
 }));
 
 stockRouter.post("/telegram/summary", requireRole("ADMIN"), route(async (_req, res) => {
   const cfg = await activeTelegram();
   await telegramSend(cfg, await buildSummary("summary", cfg.lang));
+  await repostMenu(cfg);
   res.json({ status: "success" });
 }));
 

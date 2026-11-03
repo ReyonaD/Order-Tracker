@@ -20,7 +20,6 @@ const T: Record<Lang, Record<string, string>> = {
     today: "Today", thisWeek: "Last 7 days", none: "Nothing recorded.", usageTitle: "🧴 Usage today", weekTitle: "📅 Usage, last 7 days",
     machineTitle: "🖨 Usage by machine", operatorTitle: "👤 Usage by person", receivedTitle: "📥 Stock received today", web: "Web",
     csvCaption: "Consumption this month", csvEmpty: "No consumption this month yet.", notFound: "Warehouse not found. List them with /warehouses.",
-    privacyHint: "Tip: to keep these buttons under the message box, open @BotFather → /setprivacy → this bot → Disable, then remove the bot from the group and add it again.",
     warehouses: "🏢 Warehouses", help: "Stock bot\n/menu — report buttons\n/summary /usage /stock /critical [warehouse]\n/warehouses /help",
     cols: "Date;Warehouse;Product;Quantity;Unit;Person;Machine;Note",
   },
@@ -31,7 +30,6 @@ const T: Record<Lang, Record<string, string>> = {
     today: "Bugün", thisWeek: "Son 7 gün", none: "Kayıt yok.", usageTitle: "🧴 Bugünkü tüketim", weekTitle: "📅 Son 7 günün tüketimi",
     machineTitle: "🖨 Makineye göre tüketim", operatorTitle: "👤 Kişiye göre tüketim", receivedTitle: "📥 Bugün gelen stok", web: "Web",
     csvCaption: "Bu ayın tüketimi", csvEmpty: "Bu ay henüz tüketim kaydı yok.", notFound: "Depo bulunamadı. /depolar komutuyla listeleyin.",
-    privacyHint: "İpucu: butonların mesaj kutusunun altında hep durması için @BotFather → /setprivacy → bu bot → Disable yapın, sonra botu gruptan çıkarıp yeniden ekleyin.",
     warehouses: "🏢 Depolar", help: "Stok botu\n/menu — rapor butonları\n/ozet /tuketim /stok /kritik [depo]\n/depolar /yardim",
     cols: "Tarih;Depo;Ürün;Miktar;Birim;Kişi;Makine;Not",
   },
@@ -42,7 +40,6 @@ const T: Record<Lang, Record<string, string>> = {
     today: "Hoy", thisWeek: "Últimos 7 días", none: "Sin registros.", usageTitle: "🧴 Consumo de hoy", weekTitle: "📅 Consumo, últimos 7 días",
     machineTitle: "🖨 Consumo por máquina", operatorTitle: "👤 Consumo por persona", receivedTitle: "📥 Stock recibido hoy", web: "Web",
     csvCaption: "Consumo de este mes", csvEmpty: "Aún no hay consumo este mes.", notFound: "Almacén no encontrado. Lístelos con /almacenes.",
-    privacyHint: "Consejo: para dejar estos botones bajo el cuadro de mensaje, abra @BotFather → /setprivacy → este bot → Disable y vuelva a añadir el bot al grupo.",
     warehouses: "🏢 Almacenes", help: "Bot de stock\n/menu — botones de informes\n/resumen /consumo /stock /critico [almacén]\n/almacenes /ayuda",
     cols: "Fecha;Almacén;Producto;Cantidad;Unidad;Persona;Máquina;Nota",
   },
@@ -59,14 +56,9 @@ const MENU_COMMANDS = new Set(["menu", "start", "menü"]);
 
 type Keyboard = { text: string; callback_data: string }[][];
 
-// The persistent keyboard under the message box: a press sends its label as a normal
-// message, which the bot only sees when its group privacy mode is off.
+// Labels of the keyboard an earlier version kept under the message box; a press on it still works.
 const PERSISTENT: string[][] = [["summary", "stock"], ["critical", "usage"], ["week", "received"], ["machine", "operator"], ["csv", "close"]];
-let canReadAll = false;   // set on each /menu from getMe
 
-function persistentKeyboard(t: Record<string, string>) {
-  return { keyboard: PERSISTENT.map((row) => row.map((k) => ({ text: t[k] }))), is_persistent: true, resize_keyboard: true };
-}
 
 /** A label from the persistent keyboard, in any language, back to its button. */
 function labelToAction(text: string): string | null {
@@ -83,8 +75,38 @@ function menuKeyboard(t: Record<string, string>): Keyboard {
     [{ text: t.week, callback_data: "r:week" }, { text: t.received, callback_data: "r:received" }],
     [{ text: t.machine, callback_data: "r:machine" }, { text: t.operator, callback_data: "r:operator" }],
     [{ text: t.csv, callback_data: "r:csv" }],
-    [{ text: t.close, callback_data: "x" }],
   ];
+}
+
+// ---- the menu is always the group's last message ----
+// Whenever anything lands in the chat (a member's message, a report, an alert, the daily
+// report) the previous menu is deleted and a fresh one is sent below it.
+const MENU_KEY = "stockTelegramMenu";
+let menuQueue: Promise<void> = Promise.resolve();
+
+export function repostMenu(cfg: TelegramCfg): Promise<void> {
+  // one at a time: the bot loop and the minute job may both ask at once
+  menuQueue = menuQueue.then(() => doRepost(cfg)).catch((e) => console.warn("Stock bot menu:", (e as Error).message));
+  return menuQueue;
+}
+
+async function doRepost(cfg: TelegramCfg) {
+  const t = T[cfg.lang];
+  const row = await prisma.appConfig.findUnique({ where: { key: MENU_KEY } });
+  const prev = (row?.value ?? {}) as { chatId?: string; messageId?: number; keyboardRemoved?: boolean };
+  if (prev.chatId === cfg.chatId && prev.messageId) {
+    await api(cfg.token, "deleteMessage", { chat_id: cfg.chatId, message_id: String(prev.messageId) }).catch(() => undefined);
+  }
+  let keyboardRemoved = prev.keyboardRemoved && prev.chatId === cfg.chatId;
+  if (!keyboardRemoved) {
+    // take away the keyboard under the message box from the earlier version, once
+    const gone = await api(cfg.token, "sendMessage", { chat_id: cfg.chatId, text: "…", reply_markup: JSON.stringify({ remove_keyboard: true }) }).catch(() => null);
+    if (gone?.message_id) await api(cfg.token, "deleteMessage", { chat_id: cfg.chatId, message_id: String(gone.message_id) }).catch(() => undefined);
+    keyboardRemoved = true;
+  }
+  const sent = await api(cfg.token, "sendMessage", { chat_id: cfg.chatId, text: t.menu, reply_markup: JSON.stringify({ inline_keyboard: menuKeyboard(t) }) });
+  const value = { chatId: cfg.chatId, messageId: sent?.message_id ?? 0, keyboardRemoved };
+  await prisma.appConfig.upsert({ where: { key: MENU_KEY }, create: { key: MENU_KEY, value }, update: { value } });
 }
 
 async function send(cfg: TelegramCfg, chatId: string, text: string, keyboard?: Keyboard) {
@@ -258,22 +280,9 @@ async function onButton(cfg: TelegramCfg, chatId: string, data: string) {
 
 async function onText(cfg: TelegramCfg, chatId: string, text: string) {
   const t = T[cfg.lang];
-  const pressed = labelToAction(text);
-  if (pressed === "close") {
-    await api(cfg.token, "sendMessage", { chat_id: chatId, text: "👋", reply_markup: JSON.stringify({ remove_keyboard: true }) });
-    return;
-  }
-  if (pressed) return onButton(cfg, chatId, `r:${pressed}`);
-  if (MENU_COMMANDS.has(text.slice(1).split(/[\s@]/)[0].toLowerCase())) {
-    // read it again every time: privacy is switched in BotFather while the server runs
-    canReadAll = !!(await api(cfg.token, "getMe", {}).catch(() => null))?.can_read_all_group_messages;
-    if (canReadAll) {
-      await api(cfg.token, "sendMessage", { chat_id: chatId, text: t.menu, reply_markup: JSON.stringify(persistentKeyboard(t)) });
-      return;
-    }
-    await send(cfg, chatId, t.menu, menuKeyboard(t));
-    return send(cfg, chatId, t.privacyHint);
-  }
+  const pressed = labelToAction(text);   // a press on the old keyboard, if someone still has it
+  if (pressed && pressed !== "close") return onButton(cfg, chatId, `r:${pressed}`);
+  if (pressed || MENU_COMMANDS.has(text.slice(1).split(/[\s@]/)[0].toLowerCase())) return;   // the menu follows anyway
   const [first, ...rest] = text.split(/\s+/);
   const command = first.slice(1).split("@")[0].toLowerCase();
   const arg = rest.join(" ");
@@ -291,24 +300,22 @@ async function onText(cfg: TelegramCfg, chatId: string, text: string) {
   return send(cfg, chatId, t.help);
 }
 
-async function handle(cfg: TelegramCfg, u: any) {
+/** true when something happened in our chat, so the menu has to move below it. */
+async function handle(cfg: TelegramCfg, u: any): Promise<boolean> {
   if (u.callback_query) {
     const q = u.callback_query;
     const chatId = String(q.message?.chat?.id ?? "");
     // stop the button's spinner first; a report can take a moment
     await api(cfg.token, "answerCallbackQuery", { callback_query_id: q.id }).catch(() => undefined);
-    if (chatId !== cfg.chatId) return;
-    if (q.data === "x" && q.message) {
-      await api(cfg.token, "deleteMessage", { chat_id: chatId, message_id: String(q.message.message_id) }).catch(() => undefined);
-      return;
-    }
-    await onButton(cfg, chatId, String(q.data ?? ""));
-    return;
+    if (chatId !== cfg.chatId) return false;
+    if (q.data !== "x") await onButton(cfg, chatId, String(q.data ?? ""));
+    return true;
   }
   const m = u.message;
+  if (String(m?.chat?.id ?? "") !== cfg.chatId) return false;
   const text = String(m?.text ?? "").trim();
-  if (String(m?.chat?.id ?? "") !== cfg.chatId) return;
-  if (text.startsWith("/") || labelToAction(text)) await onText(cfg, cfg.chatId, text);   // other chatter is ignored
+  if (text.startsWith("/") || labelToAction(text)) await onText(cfg, cfg.chatId, text);   // other chatter only moves the menu
+  return true;
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -326,11 +333,13 @@ async function loop() {
       }
       const row = await prisma.appConfig.findUnique({ where: { key: OFFSET_KEY } });
       const updates = await telegramUpdates(cfg, Number(row?.value ?? 0));
+      let moved = false;
       for (const u of updates) {
-        try { await handle(cfg, u); } catch (e) { console.warn("Stock bot:", (e as Error).message); }
+        try { moved = (await handle(cfg, u)) || moved; } catch (e) { console.warn("Stock bot:", (e as Error).message); moved = true; }
         const value = Number(u.update_id) + 1;
         await prisma.appConfig.upsert({ where: { key: OFFSET_KEY }, create: { key: OFFSET_KEY, value }, update: { value } });
       }
+      if (moved) await repostMenu(cfg);
       if (!updates.length) await sleep(1000);
     } catch (e) {
       // e.g. HTTP 409 while another copy of the server is still polling during a deploy

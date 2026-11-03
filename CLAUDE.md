@@ -172,9 +172,9 @@ tab, **visible to every OT user** (no second login). Changing stock from the web
   (Texas) and, only if `notifyUsage` is on (off by default — too noisy), a message per usage; each is a
   checkbox in Stock settings. `stockBot.ts` long-polls on its own loop and answers `/menu` with report buttons
   (summary, stock per warehouse, low/out, today's usage, weekly, by machine, by person, received today, month CSV)
-  plus typed commands in TR/EN/ES. If the bot's group privacy mode is off (`getMe.can_read_all_group_messages`),
-  /menu puts a persistent keyboard under the message box (labels map back to reports in any language);
-  otherwise it falls back to inline buttons plus a hint how to turn privacy off. Low/out lists are grouped by category. Token: `TELEGRAM_BOT_TOKEN` or the Stock
+  plus typed commands in TR/EN/ES. **The inline menu is always the chat's last message** (`repostMenu`): after any
+  message in the chat, report, alert or daily report the old menu is deleted and a new one sent (AppConfig
+  `stockTelegramMenu` holds its id). Seeing members' messages needs the bot's group privacy off. Lists are grouped by category. Token: `TELEGRAM_BOT_TOKEN` or the Stock
   settings (never returned by the API). Nothing is queued while disabled. Only ONE app may poll a bot token:
   stop the old PHP site's cron before enabling it here.
 - **This tab is the exception to "English only"**: it has en/tr/es (`components/stock/i18n.ts`, per browser).

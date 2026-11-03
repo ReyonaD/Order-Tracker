@@ -5,7 +5,7 @@ import { prisma } from "../db";
 import { env } from "../env";
 import { syncIfStale } from "./stock";
 import { buildSummary, getTelegramCfg, telegramSend, TelegramCfg } from "./stockTelegram";
-import { startStockBot } from "./stockBot";
+import { repostMenu, startStockBot } from "./stockBot";
 
 const TICK_MS = 60000;
 const SYNC_MAX_AGE_MS = 5 * 60000;
@@ -23,6 +23,7 @@ async function queueDailyReport(cfg: TelegramCfg) {
 
 async function flushQueue(cfg: TelegramCfg) {
   const jobs = await prisma.stockNotification.findMany({ where: { status: "pending" }, orderBy: { id: "asc" }, take: 10 });
+  if (!jobs.length) return;
   for (const job of jobs) {
     try {
       await telegramSend(cfg, job.message);
@@ -34,6 +35,7 @@ async function flushQueue(cfg: TelegramCfg) {
       });
     }
   }
+  await repostMenu(cfg);   // alerts and the daily report land above the menu
 }
 
 let running = false;
