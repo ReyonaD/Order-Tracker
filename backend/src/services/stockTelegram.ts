@@ -5,10 +5,17 @@ import { prisma } from "../db";
 import { env } from "../env";
 
 export type Lang = "en" | "tr" | "es";
-export interface TelegramCfg { token: string; chatId: string; enabled: boolean; summaryTime: string; lang: Lang }
+export interface TelegramCfg {
+  token: string; chatId: string; enabled: boolean; summaryTime: string; lang: Lang;
+  notifyUsage: boolean;   // a message for every usage (and its undo) — noisy, off by default
+  notifyLow: boolean;     // one message when a product drops to its threshold
+  dailyReport: boolean;   // the end-of-day report at summaryTime
+}
 
 const CONFIG_KEY = "stockTelegram";
-const DEFAULTS: TelegramCfg = { token: "", chatId: "", enabled: false, summaryTime: "21:00", lang: "tr" };
+const DEFAULTS: TelegramCfg = {
+  token: "", chatId: "", enabled: false, summaryTime: "21:00", lang: "tr", notifyUsage: false, notifyLow: true, dailyReport: true,
+};
 
 async function loadCfg(): Promise<TelegramCfg> {
   const row = await prisma.appConfig.findUnique({ where: { key: CONFIG_KEY } });
@@ -109,16 +116,23 @@ export async function buildSummary(mode: SummaryMode, lang: Lang, warehouseId?: 
     }
     if (mode === "summary" || mode === "critical" || mode === "stock") {
       lines.push(mode === "stock" ? TEXT[lang].stock : TEXT[lang].low);
-      let found = 0;
+      // grouped by category, a heading over each and a rule between them
+      const byCategory = new Map<string, string[]>();
       for (const p of products) {
         const level = p.levels.find((l) => l.warehouseId === w.id);
         const q = Number(level?.quantity ?? 0);
+        const min = Number(level?.minStock ?? p.minStock);
         if (level?.tracked === false && (mode !== "stock" || q <= 0)) continue;   // not kept in this warehouse
-        if (mode !== "stock" && q > Number(level?.minStock ?? p.minStock)) continue;
-        found++;
-        lines.push(`• ${p.name}: ${q} ${unitLabel(p.unit, lang)}`);
+        if (mode !== "stock" && q > min) continue;
+        const mark = level?.tracked === false ? "" : q <= 0 ? "🔴 " : q <= min ? "🟡 " : "";
+        const minNote = mode === "stock" ? "" : ` (min ${formatQty(min)})`;
+        byCategory.set(p.category, [...(byCategory.get(p.category) ?? []), `${mark}${p.name}: ${q} ${unitLabel(p.unit, lang)}${minNote}`]);
       }
-      if (!found) lines.push(TEXT[lang].noneLow);
+      if (!byCategory.size) lines.push(TEXT[lang].noneLow);
+      [...byCategory.entries()].forEach(([category, items], i) => {
+        if (i > 0) lines.push("──────────");
+        lines.push(`🏷 ${category}`, ...items);
+      });
     }
   }
   return lines.join("\n");

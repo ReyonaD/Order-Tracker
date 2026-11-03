@@ -795,6 +795,7 @@ function ProductsTab({ data, t, onDone }: { data: Overview; t: Strings; onDone: 
 
 interface TelegramState {
   chatId: string; enabled: boolean; summaryTime: string; lang: Lang; hasToken: boolean; tokenFromEnv: boolean;
+  notifyUsage: boolean; notifyLow: boolean; dailyReport: boolean;
   log: { id: number; status: string; attempts: number; lastError: string | null; createdAt: string }[];
 }
 
@@ -803,7 +804,7 @@ function SettingsTab({ isAdmin, t, lang }: { isAdmin: boolean; t: Strings; lang:
   const auditQ = useQuery({ queryKey: ["stock-audit"], queryFn: () => api.get<{ rows: { id: number; actor: string; action: string; detail: string; createdAt: string }[] }>("/stock/audit") });
   const [edit, setEdit] = useState<Partial<TelegramState> & { token?: string }>({});
   const [msg, setMsg] = useState({ text: "", ok: false });
-  const v = { chatId: "", enabled: false, summaryTime: "21:00", lang: "tr" as Lang, ...tg.data, ...edit };
+  const v = { chatId: "", enabled: false, summaryTime: "21:00", lang: "tr" as Lang, notifyUsage: false, notifyLow: true, dailyReport: true, ...tg.data, ...edit };
   const run = (fn: () => Promise<unknown>, done: string) => fn().then(
     () => { setMsg({ text: done, ok: true }); setEdit({}); tg.refetch(); },
     (e) => setMsg({ text: errText(e, t), ok: false }),
@@ -826,8 +827,13 @@ function SettingsTab({ isAdmin, t, lang }: { isAdmin: boolean; t: Strings; lang:
               </select>
             </label>
             <label className="sk-check full"><input type="checkbox" checked={v.enabled} onChange={(e) => setEdit({ ...edit, enabled: e.target.checked })} /> {t.enabled}</label>
+            <div className="sk-field full">{t.notifyTitle}
+              <label className="sk-check"><input type="checkbox" checked={v.dailyReport} onChange={(e) => setEdit({ ...edit, dailyReport: e.target.checked })} /> {t.dailyReport}</label>
+              <label className="sk-check"><input type="checkbox" checked={v.notifyLow} onChange={(e) => setEdit({ ...edit, notifyLow: e.target.checked })} /> {t.notifyLow}</label>
+              <label className="sk-check"><input type="checkbox" checked={v.notifyUsage} onChange={(e) => setEdit({ ...edit, notifyUsage: e.target.checked })} /> {t.notifyUsage}</label>
+            </div>
             <div className="sk-row full">
-              <button className="sk-btn primary" onClick={() => run(() => api.put("/stock/telegram", { token: edit.token, chatId: v.chatId, enabled: v.enabled, summaryTime: v.summaryTime, lang: v.lang }), t.saved)}>{t.save}</button>
+              <button className="sk-btn primary" onClick={() => run(() => api.put("/stock/telegram", { token: edit.token, chatId: v.chatId, enabled: v.enabled, summaryTime: v.summaryTime, lang: v.lang, notifyUsage: v.notifyUsage, notifyLow: v.notifyLow, dailyReport: v.dailyReport }), t.saved)}>{t.save}</button>
               <button className="sk-btn" disabled={!tg.data?.enabled} onClick={() => run(() => api.post("/stock/telegram/test"), t.sent)}>{t.sendTest}</button>
               <button className="sk-btn" disabled={!tg.data?.enabled} onClick={() => run(() => api.post("/stock/telegram/summary"), t.sent)}>{t.sendSummary}</button>
             </div>

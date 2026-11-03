@@ -20,6 +20,7 @@ const T: Record<Lang, Record<string, string>> = {
     today: "Today", thisWeek: "Last 7 days", none: "Nothing recorded.", usageTitle: "🧴 Usage today", weekTitle: "📅 Usage, last 7 days",
     machineTitle: "🖨 Usage by machine", operatorTitle: "👤 Usage by person", receivedTitle: "📥 Stock received today", web: "Web",
     csvCaption: "Consumption this month", csvEmpty: "No consumption this month yet.", notFound: "Warehouse not found. List them with /warehouses.",
+    privacyHint: "Tip: to keep these buttons under the message box, open @BotFather → /setprivacy → this bot → Disable, then remove the bot from the group and add it again.",
     warehouses: "🏢 Warehouses", help: "Stock bot\n/menu — report buttons\n/summary /usage /stock /critical [warehouse]\n/warehouses /help",
     cols: "Date;Warehouse;Product;Quantity;Unit;Person;Machine;Note",
   },
@@ -30,6 +31,7 @@ const T: Record<Lang, Record<string, string>> = {
     today: "Bugün", thisWeek: "Son 7 gün", none: "Kayıt yok.", usageTitle: "🧴 Bugünkü tüketim", weekTitle: "📅 Son 7 günün tüketimi",
     machineTitle: "🖨 Makineye göre tüketim", operatorTitle: "👤 Kişiye göre tüketim", receivedTitle: "📥 Bugün gelen stok", web: "Web",
     csvCaption: "Bu ayın tüketimi", csvEmpty: "Bu ay henüz tüketim kaydı yok.", notFound: "Depo bulunamadı. /depolar komutuyla listeleyin.",
+    privacyHint: "İpucu: butonların mesaj kutusunun altında hep durması için @BotFather → /setprivacy → bu bot → Disable yapın, sonra botu gruptan çıkarıp yeniden ekleyin.",
     warehouses: "🏢 Depolar", help: "Stok botu\n/menu — rapor butonları\n/ozet /tuketim /stok /kritik [depo]\n/depolar /yardim",
     cols: "Tarih;Depo;Ürün;Miktar;Birim;Kişi;Makine;Not",
   },
@@ -40,6 +42,7 @@ const T: Record<Lang, Record<string, string>> = {
     today: "Hoy", thisWeek: "Últimos 7 días", none: "Sin registros.", usageTitle: "🧴 Consumo de hoy", weekTitle: "📅 Consumo, últimos 7 días",
     machineTitle: "🖨 Consumo por máquina", operatorTitle: "👤 Consumo por persona", receivedTitle: "📥 Stock recibido hoy", web: "Web",
     csvCaption: "Consumo de este mes", csvEmpty: "Aún no hay consumo este mes.", notFound: "Almacén no encontrado. Lístelos con /almacenes.",
+    privacyHint: "Consejo: para dejar estos botones bajo el cuadro de mensaje, abra @BotFather → /setprivacy → este bot → Disable y vuelva a añadir el bot al grupo.",
     warehouses: "🏢 Almacenes", help: "Bot de stock\n/menu — botones de informes\n/resumen /consumo /stock /critico [almacén]\n/almacenes /ayuda",
     cols: "Fecha;Almacén;Producto;Cantidad;Unidad;Persona;Máquina;Nota",
   },
@@ -55,6 +58,23 @@ const LIST_COMMANDS = new Set(["warehouses", "depolar", "almacenes", "subeler"])
 const MENU_COMMANDS = new Set(["menu", "start", "menü"]);
 
 type Keyboard = { text: string; callback_data: string }[][];
+
+// The persistent keyboard under the message box: a press sends its label as a normal
+// message, which the bot only sees when its group privacy mode is off.
+const PERSISTENT: string[][] = [["summary", "stock"], ["critical", "usage"], ["week", "received"], ["machine", "operator"], ["csv", "close"]];
+let canReadAll = false;
+
+function persistentKeyboard(t: Record<string, string>) {
+  return { keyboard: PERSISTENT.map((row) => row.map((k) => ({ text: t[k] }))), is_persistent: true, resize_keyboard: true };
+}
+
+/** A label from the persistent keyboard, in any language, back to its button. */
+function labelToAction(text: string): string | null {
+  for (const t of Object.values(T)) {
+    for (const row of PERSISTENT) for (const k of row) if (t[k] === text) return k;
+  }
+  return null;
+}
 
 function menuKeyboard(t: Record<string, string>): Keyboard {
   return [
@@ -215,10 +235,23 @@ async function onButton(cfg: TelegramCfg, chatId: string, data: string) {
 
 async function onText(cfg: TelegramCfg, chatId: string, text: string) {
   const t = T[cfg.lang];
+  const pressed = labelToAction(text);
+  if (pressed === "close") {
+    await api(cfg.token, "sendMessage", { chat_id: chatId, text: "👋", reply_markup: JSON.stringify({ remove_keyboard: true }) });
+    return;
+  }
+  if (pressed) return onButton(cfg, chatId, `r:${pressed}`);
+  if (MENU_COMMANDS.has(text.slice(1).split(/[\s@]/)[0].toLowerCase())) {
+    if (canReadAll) {
+      await api(cfg.token, "sendMessage", { chat_id: chatId, text: t.menu, reply_markup: JSON.stringify(persistentKeyboard(t)) });
+      return;
+    }
+    await send(cfg, chatId, t.menu, menuKeyboard(t));
+    return send(cfg, chatId, t.privacyHint);
+  }
   const [first, ...rest] = text.split(/\s+/);
   const command = first.slice(1).split("@")[0].toLowerCase();
   const arg = rest.join(" ");
-  if (MENU_COMMANDS.has(command)) return send(cfg, chatId, t.menu, menuKeyboard(t));
   const mode = COMMANDS[command];
   if (mode) {
     const w = arg ? await prisma.stockWarehouse.findFirst({ where: { name: { equals: arg, mode: "insensitive" }, active: true } }) : null;
@@ -249,7 +282,8 @@ async function handle(cfg: TelegramCfg, u: any) {
   }
   const m = u.message;
   const text = String(m?.text ?? "").trim();
-  if (String(m?.chat?.id ?? "") === cfg.chatId && text.startsWith("/")) await onText(cfg, cfg.chatId, text);
+  if (String(m?.chat?.id ?? "") !== cfg.chatId) return;
+  if (text.startsWith("/") || labelToAction(text)) await onText(cfg, cfg.chatId, text);   // other chatter is ignored
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -261,6 +295,7 @@ async function loop() {
     if (!cfg) { await sleep(5000); continue; }   // Telegram switched on in Settings is picked up within seconds
     try {
       if (commandsFor !== cfg.token + cfg.lang) {
+        canReadAll = !!(await api(cfg.token, "getMe", {}))?.can_read_all_group_messages;
         // the "/" list Telegram offers in the chat
         await api(cfg.token, "setMyCommands", { commands: JSON.stringify([{ command: "menu", description: T[cfg.lang].menu.replace(/^\S+\s/, "").replace(/ —.*$/, "") }]) });
         commandsFor = cfg.token + cfg.lang;

@@ -238,6 +238,7 @@ stockRouter.get("/telegram", requireRole("ADMIN"), route(async (_req, res) => {
 const telegramSchema = z.object({
   token: z.string().trim().optional(), chatId: z.string().trim().regex(/^(-?\d+)?$/), enabled: z.boolean(),
   summaryTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/), lang: z.enum(["en", "tr", "es"]),
+  notifyUsage: z.boolean().optional(), notifyLow: z.boolean().optional(), dailyReport: z.boolean().optional(),
 });
 stockRouter.put("/telegram", requireRole("ADMIN"), route(async (req, res) => {
   const b = telegramSchema.parse(req.body);

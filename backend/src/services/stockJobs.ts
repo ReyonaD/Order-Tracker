@@ -12,6 +12,7 @@ const SYNC_MAX_AGE_MS = 5 * 60000;
 const MAX_ATTEMPTS = 3;
 
 async function queueDailyReport(cfg: TelegramCfg) {
+  if (!cfg.dailyReport) return;
   const now = DateTime.now().setZone(env.defaultTimezone);
   if (now.toFormat("HH:mm") < cfg.summaryTime) return;
   const eventKey = `daily:${now.toFormat("yyyy-MM-dd")}`;

@@ -168,10 +168,13 @@ tab, **visible to every OT user** (no second login). Changing stock from the web
   identify who. Undo = same machine within 15 min; later a manager reverses it in History.
 - **Low-stock threshold**: `StockProduct.minStock` is the default; `StockLevel.minStock` (nullable) overrides it for one warehouse. Always read `level.minStock ?? product.minStock`. `StockLevel.tracked=false` = that warehouse doesn't keep the product: never low/out, no alert, hidden from its lists and agents while its quantity is 0.
 - **Categories**: AppConfig `stockCategories`, added/renamed/deleted in the Products tab. DTF and UV are locked: an agent's Stock tab opens on its machine's type, but every machine can reach every category. A category in use cannot be deleted.
-- **Telegram**: `stockJobs.ts` (every minute) sends instant usage, low-stock crossing and the daily report
-  (`summaryTime`, Texas); `stockBot.ts` long-polls on its own loop and answers `/menu` with report buttons
+- **Telegram**: `stockJobs.ts` (every minute) sends low-stock crossings, the daily report at `summaryTime`
+  (Texas) and, only if `notifyUsage` is on (off by default — too noisy), a message per usage; each is a
+  checkbox in Stock settings. `stockBot.ts` long-polls on its own loop and answers `/menu` with report buttons
   (summary, stock per warehouse, low/out, today's usage, weekly, by machine, by person, received today, month CSV)
-  plus typed commands in TR/EN/ES. Token: `TELEGRAM_BOT_TOKEN` or the Stock
+  plus typed commands in TR/EN/ES. If the bot's group privacy mode is off (`getMe.can_read_all_group_messages`),
+  /menu puts a persistent keyboard under the message box (labels map back to reports in any language);
+  otherwise it falls back to inline buttons plus a hint how to turn privacy off. Low/out lists are grouped by category. Token: `TELEGRAM_BOT_TOKEN` or the Stock
   settings (never returned by the API). Nothing is queued while disabled. Only ONE app may poll a bot token:
   stop the old PHP site's cron before enabling it here.
 - **This tab is the exception to "English only"**: it has en/tr/es (`components/stock/i18n.ts`, per browser).

@@ -140,12 +140,12 @@ async function recordMove(tx: Tx, m: MoveInput) {
   });
   if (m.tg) {
     const unit = unitLabel(m.product.unit, m.tg.lang);
-    if (level?.tracked !== false && before.gt(min) && after.lte(min)) {
+    if (m.tg.notifyLow && level?.tracked !== false && before.gt(min) && after.lte(min)) {
       await tx.stockNotification.create({
         data: { eventKey: `critical:${row.id}`, message: stockMessage(m.tg.lang, "critical", { warehouse: m.warehouse.name, product: m.product.name, qty: formatQty(after), unit }) },
       });
     }
-    if (m.kind === "consumption") {
+    if (m.tg.notifyUsage && m.kind === "consumption") {
       const when = DateTime.now().setZone(env.defaultTimezone).toFormat("MM/dd/yyyy HH:mm");
       await tx.stockNotification.create({
         data: {
@@ -240,7 +240,7 @@ async function reverseOne(tx: Tx, id: number, who: Who, tg: TelegramCfg | null) 
       note: `Reversal of #${id}`, actor: who.actor, machine: who.machine || "", source: who.source || "web",
     },
   });
-  if (tg && m.kind === "consumption") {
+  if (tg?.notifyUsage && m.kind === "consumption") {
     await tx.stockNotification.create({
       data: {
         eventKey: `reversal:${id}`,
