@@ -140,7 +140,7 @@ async function recordMove(tx: Tx, m: MoveInput) {
   });
   if (m.tg) {
     const unit = unitLabel(m.product.unit, m.tg.lang);
-    if (before.gt(min) && after.lte(min)) {
+    if (level?.tracked !== false && before.gt(min) && after.lte(min)) {
       await tx.stockNotification.create({
         data: { eventKey: `critical:${row.id}`, message: stockMessage(m.tg.lang, "critical", { warehouse: m.warehouse.name, product: m.product.name, qty: formatQty(after), unit }) },
       });
@@ -303,15 +303,16 @@ export async function undoBatch(requestKey: string, machine: string, who: Who): 
   return open.length;
 }
 
-/** Set or clear (null) a product's own threshold per warehouse. */
-export async function setWarehouseMins(productId: number, mins: Record<string, string | null>, actor: string) {
+/** Per warehouse: its own threshold (null = the product's) and whether it keeps the product at all. */
+export async function setWarehouseMins(productId: number, mins: Record<string, string | null>, tracked: Record<string, boolean>, actor: string) {
   await prisma.$transaction(async (tx) => {
-    for (const [id, value] of Object.entries(mins)) {
+    for (const id of new Set([...Object.keys(mins), ...Object.keys(tracked)])) {
       const warehouseId = Number(id);
+      const data = { ...(id in mins ? { minStock: mins[id] } : {}), ...(id in tracked ? { tracked: tracked[id] } : {}) };
       await tx.stockLevel.upsert({
         where: { warehouseId_productId: { warehouseId, productId } },
-        create: { warehouseId, productId, minStock: value },
-        update: { minStock: value },
+        create: { warehouseId, productId, ...data },
+        update: data,
       });
     }
     await audit(actor, "product.mins", `#${productId}`, tx);
@@ -407,7 +408,8 @@ export async function inventory(warehouseId: number) {
     orderBy: [{ category: "asc" }, { name: "asc" }],
     include: { levels: { where: { warehouseId } } },
   });
-  return products.map((p) => {
+  // A product this warehouse doesn't keep stays out of the lists unless stock was put there anyway.
+  return products.filter((p) => p.levels[0]?.tracked !== false || Number(p.levels[0]?.quantity ?? 0) > 0).map((p) => {
     const quantity = Number(p.levels[0]?.quantity ?? 0);
     const minStock = Number(p.levels[0]?.minStock ?? p.minStock);
     return { id: p.id, name: p.name, category: p.category, unit: p.unit, minStock, quantity, status: stockStatus(quantity, minStock) };
@@ -426,20 +428,22 @@ export async function overview() {
   const rows = products.map((p) => {
     const levels: Record<number, number> = {};
     const mins: Record<number, number> = {};   // only the warehouses with their own threshold
+    const untracked: number[] = [];            // warehouses that don't keep this product
     for (const l of p.levels) {
       levels[l.warehouseId] = Number(l.quantity);
       if (l.minStock !== null) mins[l.warehouseId] = Number(l.minStock);
+      if (!l.tracked) untracked.push(l.warehouseId);
     }
     const minStock = Number(p.minStock);
     for (const w of warehouses) {
-      if (!w.active) continue;
+      if (!w.active || untracked.includes(w.id)) continue;
       const q = levels[w.id] ?? 0;
       const min = mins[w.id] ?? minStock;
       const status = stockStatus(q, min);
       if (status !== "ok") critical.push({ warehouse: w.name, product: p.name, quantity: q, minStock: min, unit: p.unit, status });
     }
     return {
-      id: p.id, name: p.name, category: p.category, unit: p.unit, minStock, levels, mins,
+      id: p.id, name: p.name, category: p.category, unit: p.unit, minStock, levels, mins, untracked,
       total: Object.values(levels).reduce((a, b) => a + b, 0),
     };
   });

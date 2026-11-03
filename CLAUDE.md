@@ -166,7 +166,7 @@ tab, **visible to every OT user** (no second login). Changing stock from the web
 - **Machine usage**: `/integrations/stock/{state,use,undo}` (`X-Api-Key`), called only by the DTF Monitor
   server, which adds the warehouse from its machine record. Agents have no login: machine + operator
   identify who. Undo = same machine within 15 min; later a manager reverses it in History.
-- **Low-stock threshold**: `StockProduct.minStock` is the default; `StockLevel.minStock` (nullable) overrides it for one warehouse. Always read `level.minStock ?? product.minStock`.
+- **Low-stock threshold**: `StockProduct.minStock` is the default; `StockLevel.minStock` (nullable) overrides it for one warehouse. Always read `level.minStock ?? product.minStock`. `StockLevel.tracked=false` = that warehouse doesn't keep the product: never low/out, no alert, hidden from its lists and agents while its quantity is 0.
 - **Categories**: AppConfig `stockCategories`, added/renamed/deleted in the Products tab. DTF and UV are locked: an agent's Stock tab opens on its machine's type, but every machine can reach every category. A category in use cannot be deleted.
 - **Telegram** (`stockJobs.ts`, every minute, in this process): instant usage, low-stock crossing, daily
   report (`summaryTime`, Texas), bot commands in TR/EN/ES. Token: `TELEGRAM_BOT_TOKEN` or the Stock

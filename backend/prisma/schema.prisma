@@ -321,6 +321,7 @@ model StockLevel {
   productId   Int
   quantity    Decimal @default(0) @db.Decimal(10, 2)
   minStock    Decimal? @db.Decimal(10, 2)   // this warehouse's own threshold; null = the product's
+  tracked     Boolean  @default(true)        // false = not kept here: never low/out, hidden while empty
   warehouse   StockWarehouse @relation(fields: [warehouseId], references: [id])
   product     StockProduct   @relation(fields: [productId], references: [id])
 

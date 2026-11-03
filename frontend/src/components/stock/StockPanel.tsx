@@ -5,7 +5,7 @@ import { Lang, loadLang, saveLang, STRINGS, Strings } from "./i18n";
 import "./stock.css";
 
 interface Warehouse { id: number; name: string; active: boolean; machines: { name: string; type: string }[] }
-interface OverviewProduct { id: number; name: string; category: string; unit: string; minStock: number; levels: Record<number, number>; mins: Record<number, number>; total: number }
+interface OverviewProduct { id: number; name: string; category: string; unit: string; minStock: number; levels: Record<number, number>; mins: Record<number, number>; untracked: number[]; total: number }
 interface Overview {
   warehouses: Warehouse[]; products: OverviewProduct[]; usedToday: Record<number, number>;
   weekly: { days: string[]; rows: { warehouseId: number; day: string; type: string; n: number }[] };
@@ -142,10 +142,11 @@ function OverviewTab({ data, selected, onSelect, goTo, onSync, syncing, t, lang 
   const active = data.warehouses.filter((w) => w.active);
   const scope = selected ? active.filter((w) => w.id === selected) : active;
   const scopeName = scope[0]?.name ?? "";
-  const rows = data.products.flatMap((p) => scope.map((w) => {
+  // a warehouse that doesn't keep the product neither counts against it nor lists it (unless stock landed there)
+  const rows = data.products.flatMap((p) => scope.filter((w) => !p.untracked.includes(w.id) || (p.levels[w.id] ?? 0) > 0).map((w) => {
     const quantity = p.levels[w.id] ?? 0;
     const min = p.mins[w.id] ?? p.minStock;
-    return { p, w, quantity, min, status: statusOf(quantity, min) };
+    return { p, w, quantity, min, status: p.untracked.includes(w.id) ? "ok" : statusOf(quantity, min) };
   }));
   const critical = rows.filter((r) => r.status !== "ok").sort((a, b) => a.quantity / (a.min || 1) - b.quantity / (b.min || 1));
   const healthy = rows.length - critical.length;
@@ -238,7 +239,8 @@ function OverviewTab({ data, selected, onSelect, goTo, onSync, syncing, t, lang 
                     <td className="num">{n2(p.minStock)}</td>
                     {data.warehouses.map((w) => {
                       const q = p.levels[w.id] ?? 0;
-                      const st = statusOf(q, p.mins[w.id] ?? p.minStock);
+                      if (p.untracked.includes(w.id) && q <= 0) return <td key={w.id} className="num" title={t.notStocked}><small>—</small></td>;
+                      const st = p.untracked.includes(w.id) ? "ok" : statusOf(q, p.mins[w.id] ?? p.minStock);
                       return <td key={w.id} className={`num ${st === "ok" ? "" : st}`}>{n2(q)}</td>;
                     })}
                     <td className="num"><b>{n2(p.total)}</b> <small>{unitOf(t, p.unit)}</small></td>
@@ -628,6 +630,7 @@ function ProductsTab({ data, t, onDone }: { data: Overview; t: Strings; onDone: 
   const q = useQuery({ queryKey: ["stock-products"], queryFn: () => api.get<{ rows: Product[] }>("/stock/products") });
   const [form, setForm] = useState<typeof EMPTY_PRODUCT | null>(null);
   const [mins, setMins] = useState<Record<number, string>>({});
+  const [tracked, setTracked] = useState<Record<number, boolean>>({});
   const [error, setError] = useState("");
   const [listError, setListError] = useState("");
   const [cat, setCat] = useState("");
@@ -640,7 +643,10 @@ function ProductsTab({ data, t, onDone }: { data: Overview; t: Strings; onDone: 
       const { id, ...body } = form!;
       if (!id) return api.post("/stock/products", body);
       await api.put(`/stock/products/${id}`, body);
-      return api.put(`/stock/products/${id}/mins`, { mins: Object.fromEntries(warehouses.map((w) => [w.id, mins[w.id] ?? ""])) });
+      return api.put(`/stock/products/${id}/mins`, {
+        mins: Object.fromEntries(warehouses.map((w) => [w.id, mins[w.id] ?? ""])),
+        tracked: Object.fromEntries(warehouses.map((w) => [w.id, tracked[w.id] !== false])),
+      });
     },
     onSuccess: () => { setForm(null); setError(""); q.refetch(); onDone(); },
     onError: (e) => setError(errText(e, t)),
@@ -687,11 +693,16 @@ function ProductsTab({ data, t, onDone }: { data: Overview; t: Strings; onDone: 
                 <h3>{t.perWarehouseMin}</h3>
                 <p className="sk-note">{t.perWarehouseHint}</p>
                 <div>
-                  {warehouses.map((w) => (
-                    <label key={w.id} className="sk-field">{w.name}
-                      <input className="sk-input" inputMode="decimal" placeholder={n2(Number(form.minStock) || 0)} value={mins[w.id] ?? ""} onChange={(e) => setMins({ ...mins, [w.id]: e.target.value })} />
-                    </label>
-                  ))}
+                  {warehouses.map((w) => {
+                    const kept = tracked[w.id] !== false;
+                    return (
+                      <div key={w.id} className={`sk-field sk-minbox${kept ? "" : " off"}`}>
+                        <span>{w.name}</span>
+                        <label className="sk-check"><input type="checkbox" checked={kept} onChange={(e) => setTracked({ ...tracked, [w.id]: e.target.checked })} /> {t.stockedHere}</label>
+                        <input className="sk-input" inputMode="decimal" aria-label={`${w.name} ${t.min}`} disabled={!kept} placeholder={kept ? n2(Number(form.minStock) || 0) : "—"} value={kept ? mins[w.id] ?? "" : ""} onChange={(e) => setMins({ ...mins, [w.id]: e.target.value })} />
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -723,8 +734,9 @@ function ProductsTab({ data, t, onDone }: { data: Overview; t: Strings; onDone: 
                 <td><div className="sk-product"><ProductIcon name={p.name} />{p.name}</div></td><td><Category value={p.category} /></td><td>{unitOf(t, p.unit)}</td><td className="num">{n2(p.minStock)}</td>
                 <td>{p.active ? t.active : <span className="sk-muted">{t.inactive}</span>}</td>
                 <td className="num"><button className="sk-btn small" onClick={() => {
-                  const own = data.products.find((x) => x.id === p.id)?.mins ?? {};
-                  setMins(Object.fromEntries(Object.entries(own).map(([w, v]) => [w, String(v)])));
+                  const op = data.products.find((x) => x.id === p.id);
+                  setMins(Object.fromEntries(Object.entries(op?.mins ?? {}).map(([w, v]) => [w, String(v)])));
+                  setTracked(Object.fromEntries((op?.untracked ?? []).map((w) => [w, false])));
                   setError(""); setForm({ ...p, minStock: String(p.minStock) });
                 }}>{t.edit}</button> <button className="sk-btn small" disabled={remove.isPending} onClick={() => { if (confirm(t.deleteProductAsk(p.name))) remove.mutate(p.id); }}>{t.del}</button></td>
               </tr>

@@ -188,12 +188,12 @@ stockRouter.delete("/products/:id", requireStockManager, route(async (req, res) 
   res.json({ status: "success", result: await deleteProduct(Number(req.params.id), await actorName(req)) });
 }));
 
-const minsSchema = z.object({ mins: z.record(z.union([z.string(), z.number(), z.null()])) });
+const minsSchema = z.object({ mins: z.record(z.union([z.string(), z.number(), z.null()])), tracked: z.record(z.boolean()).default({}) });
 stockRouter.put("/products/:id/mins", requireStockManager, route(async (req, res) => {
-  const { mins } = minsSchema.parse(req.body);
+  const { mins, tracked } = minsSchema.parse(req.body);
   const clean: Record<string, string | null> = {};
   for (const [id, v] of Object.entries(mins)) clean[id] = v === null || String(v).trim() === "" ? null : parseMin(String(v).trim().replace(",", "."));
-  await setWarehouseMins(Number(req.params.id), clean, await actorName(req));
+  await setWarehouseMins(Number(req.params.id), clean, tracked, await actorName(req));
   res.json({ status: "success" });
 }));
 

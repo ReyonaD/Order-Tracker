@@ -113,6 +113,7 @@ export async function buildSummary(mode: SummaryMode, lang: Lang, warehouseId?: 
       for (const p of products) {
         const level = p.levels.find((l) => l.warehouseId === w.id);
         const q = Number(level?.quantity ?? 0);
+        if (level?.tracked === false && (mode !== "stock" || q <= 0)) continue;   // not kept in this warehouse
         if (mode !== "stock" && q > Number(level?.minStock ?? p.minStock)) continue;
         found++;
         lines.push(`• ${p.name}: ${q} ${unitLabel(p.unit, lang)}`);

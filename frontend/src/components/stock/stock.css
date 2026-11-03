@@ -191,7 +191,12 @@
 .sk-muted { color: var(--sk-muted); }
 .sk-pager { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 12px 22px; color: var(--sk-muted); }
 .sk-mins h3 { font-size: 14px; font-weight: 700; }
-.sk-mins > div { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 8px; }
+.sk-mins > div { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; margin-top: 8px; }
+.sk-minbox { padding: 10px; border: 1px solid var(--sk-line); border-radius: 10px; gap: 6px; }
+.sk-minbox > span { color: var(--sk-ink); }
+.sk-minbox .sk-check { font-weight: 500; font-size: 13px; }
+.sk-minbox.off { background: #faf8f3; }
+.sk-minbox.off > span { color: var(--sk-faint); }
 .sk-whpick { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
 .sk-whpick button { display: flex; align-items: center; gap: 12px; padding: 16px; text-align: left; font: inherit; color: inherit; background: var(--sk-card); border: 1px solid var(--sk-line); border-radius: 13px; cursor: pointer; transition: border-color .14s, box-shadow .14s, transform .1s; }
 .sk-whpick button:hover { border-color: var(--sk-teal); box-shadow: 0 3px 10px rgba(20, 47, 56, .07); }
