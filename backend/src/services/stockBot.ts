@@ -121,6 +121,41 @@ function totals(rows: Row[], lang: Lang): string[] {
   return [...sum.values()].sort((a, b) => b.q - a.q).map((e) => `• ${e.name}: ${formatQty(e.q.toFixed(2))} ${unitLabel(e.unit, lang)}`);
 }
 
+/** Totals per product, grouped by category with a heading and a rule between groups. */
+function byCategory(rows: Row[], lang: Lang): string[] {
+  const cats = new Map<string, Row[]>();
+  for (const r of rows) cats.set(r.product.category, [...(cats.get(r.product.category) ?? []), r]);
+  const out: string[] = [];
+  [...cats.entries()].sort((a, b) => a[0].localeCompare(b[0])).forEach(([cat, list], i) => {
+    if (i > 0) out.push("──────────");
+    out.push(`🏷 ${cat}`, ...totals(list, lang));
+  });
+  return out;
+}
+
+/** "👤 Emrullah (Picasso_M_1) · Bilal (Picasso_M_2)" — who used stock, on which machines. */
+function whoLine(rows: Row[], t: Record<string, string>): string {
+  const who = new Map<string, Set<string>>();
+  for (const r of rows) {
+    const name = r.actor || "?";
+    who.set(name, (who.get(name) ?? new Set()).add(r.machine || t.web));
+  }
+  return "👤 " + [...who.entries()].map(([n, m]) => `${n} (${[...m].join(", ")})`).join(" · ");
+}
+
+/** One block per warehouse: category totals, then who. */
+function perWarehouse(rows: Row[], lang: Lang, withWho: boolean): string[] {
+  const t = T[lang];
+  const whs = new Map<string, Row[]>();
+  for (const r of rows) whs.set(r.warehouse.name, [...(whs.get(r.warehouse.name) ?? []), r]);
+  const out: string[] = [];
+  for (const [name, list] of [...whs.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+    out.push("", `🏢 ${name}`, ...byCategory(list, lang));
+    if (withWho) out.push(whoLine(list, t));
+  }
+  return out;
+}
+
 function grouped(rows: Row[], key: (r: Row) => string, lang: Lang): string[] {
   const groups = new Map<string, Row[]>();
   for (const r of rows) groups.set(key(r), [...(groups.get(key(r)) ?? []), r]);
@@ -142,23 +177,11 @@ function cap(lines: string[]): string {
 
 export async function report(kind: string, lang: Lang, arg = ""): Promise<string> {
   const t = T[lang];
-  if (kind === "usage") {
-    const from = startOfToday();
+  if (kind === "usage" || kind === "week") {
+    const period = kind === "week" ? "week" : "today";
+    const from = rangeOf(period);
     const rows = await consumption(from);
-    const lines = [head(t.usageTitle, from, "today")];
-    if (!rows.length) lines.push(t.none);
-    let wh = "";
-    for (const r of rows.sort((a, b) => a.warehouse.name.localeCompare(b.warehouse.name) || a.id - b.id)) {
-      if (r.warehouse.name !== wh) { wh = r.warehouse.name; lines.push(`\n🏢 ${wh}`); }
-      const who = [r.actor, r.machine || (r.source === "web" ? t.web : "")].filter(Boolean).join(" · ");
-      lines.push(`• ${clock(r.createdAt)} ${r.product.name}: ${formatQty(r.quantity)} ${unitLabel(r.product.unit, lang)} — ${who}`);
-    }
-    return cap(lines);
-  }
-  if (kind === "week") {
-    const from = rangeOf("week");
-    const rows = await consumption(from);
-    return cap([head(t.weekTitle, from, "week"), ...(rows.length ? grouped(rows, (r) => `🏢 ${r.warehouse.name}`, lang) : [t.none])]);
+    return cap([head(kind === "week" ? t.weekTitle : t.usageTitle, from, period), ...(rows.length ? perWarehouse(rows, lang, true) : [t.none])]);
   }
   if (kind === "machine" || kind === "operator") {
     const from = rangeOf(arg);
