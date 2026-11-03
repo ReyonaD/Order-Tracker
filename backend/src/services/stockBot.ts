@@ -62,7 +62,7 @@ type Keyboard = { text: string; callback_data: string }[][];
 // The persistent keyboard under the message box: a press sends its label as a normal
 // message, which the bot only sees when its group privacy mode is off.
 const PERSISTENT: string[][] = [["summary", "stock"], ["critical", "usage"], ["week", "received"], ["machine", "operator"], ["csv", "close"]];
-let canReadAll = false;
+let canReadAll = false;   // set on each /menu from getMe
 
 function persistentKeyboard(t: Record<string, string>) {
   return { keyboard: PERSISTENT.map((row) => row.map((k) => ({ text: t[k] }))), is_persistent: true, resize_keyboard: true };
@@ -242,6 +242,8 @@ async function onText(cfg: TelegramCfg, chatId: string, text: string) {
   }
   if (pressed) return onButton(cfg, chatId, `r:${pressed}`);
   if (MENU_COMMANDS.has(text.slice(1).split(/[\s@]/)[0].toLowerCase())) {
+    // read it again every time: privacy is switched in BotFather while the server runs
+    canReadAll = !!(await api(cfg.token, "getMe", {}).catch(() => null))?.can_read_all_group_messages;
     if (canReadAll) {
       await api(cfg.token, "sendMessage", { chat_id: chatId, text: t.menu, reply_markup: JSON.stringify(persistentKeyboard(t)) });
       return;
@@ -295,7 +297,6 @@ async function loop() {
     if (!cfg) { await sleep(5000); continue; }   // Telegram switched on in Settings is picked up within seconds
     try {
       if (commandsFor !== cfg.token + cfg.lang) {
-        canReadAll = !!(await api(cfg.token, "getMe", {}))?.can_read_all_group_messages;
         // the "/" list Telegram offers in the chat
         await api(cfg.token, "setMyCommands", { commands: JSON.stringify([{ command: "menu", description: T[cfg.lang].menu.replace(/^\S+\s/, "").replace(/ —.*$/, "") }]) });
         commandsFor = cfg.token + cfg.lang;
