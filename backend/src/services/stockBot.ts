@@ -300,6 +300,9 @@ async function onText(cfg: TelegramCfg, chatId: string, text: string) {
   return send(cfg, chatId, t.help);
 }
 
+// buttons that answer with a follow-up question (which warehouse / which period)
+const QUESTIONS = new Set(["r:stock", "r:machine", "r:operator"]);
+
 /** true when something happened in our chat, so the menu has to move below it. */
 async function handle(cfg: TelegramCfg, u: any): Promise<boolean> {
   if (u.callback_query) {
@@ -308,7 +311,17 @@ async function handle(cfg: TelegramCfg, u: any): Promise<boolean> {
     // stop the button's spinner first; a report can take a moment
     await api(cfg.token, "answerCallbackQuery", { callback_query_id: q.id }).catch(() => undefined);
     if (chatId !== cfg.chatId) return false;
-    if (q.data !== "x") await onButton(cfg, chatId, String(q.data ?? ""));
+    const data = String(q.data ?? "");
+    if (data === "x") return true;
+    if (QUESTIONS.has(data)) {
+      await onButton(cfg, chatId, data);
+      return false;   // the menu follows the answer, not the question
+    }
+    if (/^(s|machine|operator):/.test(data) && q.message) {
+      // the question has been answered: take it away, the report and the menu follow
+      await api(cfg.token, "deleteMessage", { chat_id: chatId, message_id: String(q.message.message_id) }).catch(() => undefined);
+    }
+    await onButton(cfg, chatId, data);
     return true;
   }
   const m = u.message;
