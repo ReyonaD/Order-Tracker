@@ -124,9 +124,9 @@ export async function buildSummary(mode: SummaryMode, lang: Lang, warehouseId?: 
   return lines.join("\n");
 }
 
-async function api(token: string, method: string, data: Record<string, string>): Promise<any> {
+export async function api(token: string, method: string, data: Record<string, string> | FormData, timeoutMs = 15000): Promise<any> {
   const resp = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
-    method: "POST", body: new URLSearchParams(data), signal: AbortSignal.timeout(15000),
+    method: "POST", body: data instanceof FormData ? data : new URLSearchParams(data), signal: AbortSignal.timeout(timeoutMs),
   });
   const body = (await resp.json().catch(() => null)) as { ok?: boolean; result?: unknown } | null;
   // Never echo the URL: it contains the bot token.
@@ -134,7 +134,7 @@ async function api(token: string, method: string, data: Record<string, string>):
   return body.result;
 }
 
-export async function telegramSend(cfg: TelegramCfg, message: string) {
+export async function telegramSend(cfg: TelegramCfg, message: string, chatId = cfg.chatId) {
   // Telegram limits message length; split on whole lines.
   const chunks: string[] = [];
   let chunk = "";
@@ -143,9 +143,13 @@ export async function telegramSend(cfg: TelegramCfg, message: string) {
     chunk += (chunk ? "\n" : "") + line;
   }
   if (chunk) chunks.push(chunk);
-  for (const text of chunks) await api(cfg.token, "sendMessage", { chat_id: cfg.chatId, text });
+  for (const text of chunks) await api(cfg.token, "sendMessage", { chat_id: chatId, text });
 }
 
-export async function telegramUpdates(cfg: TelegramCfg, offset: number): Promise<any[]> {
-  return api(cfg.token, "getUpdates", { offset: String(offset), timeout: "0", allowed_updates: JSON.stringify(["message"]) });
+/** Long poll: Telegram holds the request up to `wait` seconds and answers as soon as
+ *  something arrives, so a button press is answered at once. */
+export async function telegramUpdates(cfg: TelegramCfg, offset: number, wait = 25): Promise<any[]> {
+  return api(cfg.token, "getUpdates", {
+    offset: String(offset), timeout: String(wait), allowed_updates: JSON.stringify(["message", "callback_query"]),
+  }, (wait + 10) * 1000);
 }
