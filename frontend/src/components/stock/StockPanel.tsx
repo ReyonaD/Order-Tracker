@@ -163,6 +163,36 @@ function OverviewTab({ data, selected, onSelect, goTo, onSync, syncing, t, lang 
     refetchInterval: 30000,
   });
   const last = (recent.data?.rows ?? []).slice(0, 5);
+
+  // inventory table: filter by category / status, sort by a column
+  const [invCat, setInvCat] = useState("");
+  const [invStatus, setInvStatus] = useState("");
+  const [invSort, setInvSort] = useState<{ key: "name" | "category" | "quantity" | "status"; dir: 1 | -1 }>({ key: "name", dir: 1 });
+  const RANK: Record<string, number> = { out: 0, low: 1, ok: 2 };
+  // all warehouses: a product's status is its worst one among the warehouses that keep it
+  const worst = (p: OverviewProduct) => rows.filter((r) => r.p.id === p.id).reduce((s, r) => (RANK[r.status] < RANK[s] ? r.status : s), "ok");
+  const byCat = (category: string) => !invCat || category === invCat;
+  const order = <T,>(list: T[], get: (x: T) => { name: string; category: string; quantity: number; status: string }) =>
+    [...list].sort((a, b) => {
+      const x = get(a), y = get(b), k = invSort.key;
+      const d = k === "quantity" ? x.quantity - y.quantity : k === "status" ? RANK[x.status] - RANK[y.status] : x[k].localeCompare(y[k]);
+      return (d || x.name.localeCompare(y.name)) * invSort.dir;
+    });
+  const singleAll = rows.filter((r) => byCat(r.p.category));
+  const singleRows = order(singleAll.filter((r) => !invStatus || r.status === invStatus),
+    (r) => ({ name: r.p.name, category: r.p.category, quantity: r.quantity, status: r.status }));
+  const matrixAll = data.products.filter((p) => byCat(p.category)).map((p) => ({ p, status: worst(p) }));
+  const matrixRows = order(matrixAll.filter((m) => !invStatus || m.status === invStatus),
+    (m) => ({ name: m.p.name, category: m.p.category, quantity: m.p.total, status: m.status }));
+  const statusPool = selected ? singleAll.map((r) => r.status) : matrixAll.map((m) => m.status);
+  const sortHead = (key: typeof invSort.key, label: string, num = false) => (
+    <th className={num ? "num" : ""} aria-sort={invSort.key === key ? (invSort.dir > 0 ? "ascending" : "descending") : "none"}>
+      <button className={`sk-sort ${invSort.key === key ? "on" : ""}`} onClick={() => setInvSort({ key, dir: invSort.key === key ? (invSort.dir > 0 ? -1 : 1) : 1 })}>
+        {label} <span aria-hidden="true">{invSort.key === key ? (invSort.dir > 0 ? "↑" : "↓") : "↕"}</span>
+      </button>
+    </th>
+  );
+  const shownCount = selected ? singleRows.length : matrixRows.length;
   return (
     <>
       <WarehouseChips warehouses={active} selected={selected} onSelect={onSelect} t={t} />
@@ -213,11 +243,24 @@ function OverviewTab({ data, selected, onSelect, goTo, onSync, syncing, t, lang 
       {active.length > 0 && (
         <section className="sk-panel" id="sk-inventory">
           <PanelHead title={t.inventory} sub={t.inventorySub} />
+          <div className="sk-invbar">
+            <div className="sk-chips">
+              <button className={invCat ? "" : "on"} onClick={() => setInvCat("")}>{t.all}</button>
+              {data.categories.map((c) => <button key={c} className={invCat === c ? "on" : ""} onClick={() => setInvCat(c)}>{c}</button>)}
+            </div>
+            <div className="sk-chips">
+              {([["", t.all], ["out", t.stockOut], ["low", t.stockLow], ["ok", t.stockOk]] as [string, string][]).map(([k, l]) => (
+                <button key={k} className={`${invStatus === k ? "on" : ""} ${k ? `st-${k}` : ""}`} onClick={() => setInvStatus(k)}>
+                  {l} <small>{k ? statusPool.filter((s) => s === k).length : statusPool.length}</small>
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="sk-scroll">
             {selected ? (
               <table className="sk-table">
-                <thead><tr><th>{t.product}</th><th>{t.category}</th><th>{t.quantity}</th><th className="num">{t.min}</th><th>{t.status}</th></tr></thead>
-                <tbody>{rows.map(({ p, quantity, min, status }) => (
+                <thead><tr>{sortHead("name", t.product)}{sortHead("category", t.category)}{sortHead("quantity", t.quantity)}<th className="num">{t.min}</th>{sortHead("status", t.status)}</tr></thead>
+                <tbody>{singleRows.map(({ p, quantity, min, status }) => (
                   <tr key={p.id}>
                     <td><div className="sk-product"><ProductIcon name={p.name} />{p.name}</div></td>
                     <td><Category value={p.category} /></td>
@@ -229,10 +272,10 @@ function OverviewTab({ data, selected, onSelect, goTo, onSync, syncing, t, lang 
               </table>
             ) : (
               <table className="sk-table">
-                <thead><tr><th>{t.product}</th><th>{t.category}</th><th className="num">{t.min}</th>
+                <thead><tr>{sortHead("name", t.product)}{sortHead("category", t.category)}<th className="num">{t.min}</th>
                   {data.warehouses.map((w) => <th key={w.id} className="num" title={w.active ? "" : t.removedWh}>{w.name}{w.active ? "" : " ⚠"}</th>)}
-                  <th className="num">{t.total}</th></tr></thead>
-                <tbody>{data.products.map((p) => (
+                  {sortHead("quantity", t.total, true)}</tr></thead>
+                <tbody>{matrixRows.map(({ p }) => (
                   <tr key={p.id}>
                     <td><div className="sk-product"><ProductIcon name={p.name} />{p.name}</div></td>
                     <td><Category value={p.category} /></td>
@@ -249,6 +292,7 @@ function OverviewTab({ data, selected, onSelect, goTo, onSync, syncing, t, lang 
               </table>
             )}
           </div>
+          {shownCount === 0 && <div className="sk-empty"><Icon name="search" />{t.noRows}</div>}
         </section>
       )}
       <section className="sk-panel">
