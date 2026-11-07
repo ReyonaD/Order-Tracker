@@ -3,6 +3,7 @@ import { classifyWebhook, ShopifyOrderPayload } from "./shopify";
 import { handleOrderCreation } from "./orderCreation";
 import { handleFulfillment } from "./fulfillment";
 import { handleCancellation } from "./cancellation";
+import { restockCancelledShopifyOrder, stockForShopifyOrder } from "./stockShopify";
 
 export interface ProcessResult {
   kind: "creation" | "fulfillment" | "cancellation";
@@ -28,6 +29,14 @@ export async function processWebhook(
     result = await handleFulfillment(store.id, data);
   } else {
     result = await handleOrderCreation(store, data);
+  }
+
+  // Shopify-linked stock (blank T-shirts). Never lets a stock problem fail the order itself.
+  try {
+    if (kind === "cancellation") await restockCancelledShopifyOrder(store, data);
+    else if (kind === "creation") await stockForShopifyOrder(store, data);
+  } catch (e) {
+    console.warn(`Shopify stock (${store.code} ${data.name ?? ""}):`, (e as Error).message);
   }
 
   const unmatched = result.status === "not_found";

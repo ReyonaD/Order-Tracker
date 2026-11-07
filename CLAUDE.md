@@ -180,6 +180,21 @@ tab, **visible to every OT user** (no second login). Changing stock from the web
 - **This tab is the exception to "English only"**: it has en/tr/es (`components/stock/i18n.ts`, per browser).
   Its look (paper + mint + CMYK line, from the old stock app) lives in `components/stock/stock.css`, scoped under `.sk`.
 
+### Shopify-linked stock (Cheetah T-shirts, 2026-11-07)
+`services/stockShopify.ts`, called from `processWebhook` (a stock failure never fails the order). A product with
+`StockProduct.shopifyKey` = `"store|product title|variant title"` (lowercased, e.g.
+`cheetah|gildan light cotton t-shirt|large/black`; variant words sorted, hyphens split, number-only words
+dropped, so "Dark Grey Heather" = "Heather Dark Grey" and "navy-1" = "Navy" — `shopifyKeyOf`) is taken out of the warehouse **named like the store code**
+(CHEETAH) when the order webhook arrives (consumption, actor "Shopify", source `shopify`, note `Shopify #C…`),
+applied once per order (StockBatch `shopify:<STORE>:<orderId>`); a cancellation reverses those movements once.
+Shopify sales are never refused: if the count is short, stock stops at 0 and the note says "N not in stock".
+Walk-in sales = ordinary stock out. Shopify's own inventory is NOT updated (our app is the stock of record).
+Seeded by migration `20261107120000_stock_shopify_tshirts`: Bella Canvas 3001 (72) + Gildan 3000 (95; no
+heather-dark-grey in Small) in category "T-Shirt", tracked only in CHEETAH. Colors use the names Shopify puts in
+ORDERS (the products CSV export has metaobject handles like `dark-grey` that do NOT match) — all 105 variants seen
+in real orders matched. A linked line whose variant matches nothing is logged as StockAudit `shopify.unmatched`
+(new color/renamed product → add the product / fix its `shopifyKey`). Refunds/order edits don't change stock.
+
 ## Delivery (planned, mostly not built here)
 PICASSO local delivery uses Shopify native Local Delivery + the EasyRoutes app, NOT a custom
 build. Phase 2 (future): OT adds a `ready-to-deliver` Shopify tag when a delivery order is

@@ -312,6 +312,7 @@ model StockProduct {
   minStock  Decimal  @default(3) @db.Decimal(10, 2)
   active    Boolean  @default(true)
   deletedAt DateTime?   // removed from the lists; its movements stay for reports
+  shopifyKey String?  @unique  // "STORE|product title|variant title" (lowercased): a sale in that Shopify store takes it out
   levels    StockLevel[]
   movements StockMovement[]
 }

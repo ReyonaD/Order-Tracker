@@ -26,7 +26,7 @@ export class StockError extends Error {
   }
 }
 
-export interface Who { actor: string; machine?: string; source?: "web" | "agent" }
+export interface Who { actor: string; machine?: string; source?: "web" | "agent" | "shopify" }
 
 export function parseQty(v: unknown): string {
   const s = String(v ?? "").trim();
@@ -125,16 +125,30 @@ interface MoveInput {
   who: Who;
   batchKey?: string;
   tg: TelegramCfg | null;
+  takeWhatIsThere?: boolean;   // a Shopify sale already happened: take what the shelf has, never refuse
 }
 
 async function recordMove(tx: Tx, m: MoveInput) {
-  const { before, after } = await changeLevel(tx, m.warehouse.id, m.product.id, m.type, m.quantity, m.product.unit);
+  let quantity = m.quantity, note = m.note;
+  if (m.takeWhatIsThere && m.type === "out") {
+    // the count can be behind reality; stock stops at 0 and the record says how many were missing
+    await tx.$executeRaw`INSERT INTO "StockLevel" ("warehouseId", "productId", "quantity") VALUES (${m.warehouse.id}, ${m.product.id}, 0) ON CONFLICT DO NOTHING`;
+    const cur = await tx.$queryRaw<{ quantity: string }[]>`SELECT "quantity"::text AS quantity FROM "StockLevel" WHERE "warehouseId" = ${m.warehouse.id} AND "productId" = ${m.product.id} FOR UPDATE`;
+    const have = new Prisma.Decimal(cur[0].quantity);
+    if (have.lt(quantity)) {
+      note = `${note} · ${formatQty(new Prisma.Decimal(quantity).minus(have))} not in stock`.slice(0, 255);
+      quantity = have.toFixed(2);
+    }
+  }
+  const { before, after } = Number(quantity) > 0
+    ? await changeLevel(tx, m.warehouse.id, m.product.id, m.type, quantity, m.product.unit)
+    : { before: new Prisma.Decimal(0), after: new Prisma.Decimal(0) };
   const level = await tx.stockLevel.findUnique({ where: { warehouseId_productId: { warehouseId: m.warehouse.id, productId: m.product.id } } });
   const min = level?.minStock ?? m.product.minStock;
   const row = await tx.stockMovement.create({
     data: {
-      warehouseId: m.warehouse.id, productId: m.product.id, type: m.type, kind: m.kind, quantity: m.quantity,
-      before, after, note: m.note, actor: m.who.actor, machine: m.who.machine || "", source: m.who.source || "web",
+      warehouseId: m.warehouse.id, productId: m.product.id, type: m.type, kind: m.kind, quantity,
+      before, after, note, actor: m.who.actor, machine: m.who.machine || "", source: m.who.source || "web",
       batchKey: m.batchKey ?? null,
     },
   });
@@ -151,7 +165,7 @@ async function recordMove(tx: Tx, m: MoveInput) {
         data: {
           eventKey: `consumption:${row.id}`,
           message: stockMessage(m.tg.lang, "consumption", {
-            when, warehouse: m.warehouse.name, product: m.product.name, qty: m.quantity.replace(/\.?0+$/, ""), unit, left: formatQty(after),
+            when, warehouse: m.warehouse.name, product: m.product.name, qty: quantity.replace(/\.?0+$/, ""), unit, left: formatQty(after),
             actor: m.who.actor, machine: m.who.machine || "",
           }),
         },
@@ -170,6 +184,7 @@ export interface BatchInput {
   note?: unknown;
   requestKey: string;
   who: Who;
+  takeWhatIsThere?: boolean;
 }
 
 /** A whole list in one transaction: all lines apply or none do. The same requestKey
@@ -199,7 +214,7 @@ export async function applyBatch(input: BatchInput): Promise<boolean> {
       if (!product) throw new StockError("inactive_product", "Select an active product.");
       await recordMove(tx, {
         warehouse, product, quantity: l.quantity, type: input.type, kind: input.type === "out" ? "consumption" : "stock",
-        note, who: input.who, batchKey: input.requestKey, tg,
+        note, who: input.who, batchKey: input.requestKey, tg, takeWhatIsThere: input.takeWhatIsThere,
       });
     }
     await audit(input.who.actor, `stock.${input.type}`, `${warehouse.name} / ${lines.length} item(s)${input.who.machine ? ` / ${input.who.machine}` : ""}`, tx);
@@ -227,7 +242,7 @@ export async function transferStock(sourceId: number, destId: number, productId:
   }, TX_OPTS);
 }
 
-async function reverseOne(tx: Tx, id: number, who: Who, tg: TelegramCfg | null) {
+export async function reverseOne(tx: Tx, id: number, who: Who, tg: TelegramCfg | null) {
   const claimed = await tx.stockMovement.updateMany({ where: { id, kind: { in: ["consumption", "stock"] }, reversedAt: null }, data: { reversedAt: new Date() } });
   if (!claimed.count) throw new StockError("not_reversible", "Record not found or already reversed.", {}, 404);
   const m = await tx.stockMovement.findUniqueOrThrow({ where: { id }, include: { product: true, warehouse: true } });
