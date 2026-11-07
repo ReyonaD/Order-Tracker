@@ -189,8 +189,8 @@ dropped, so "Dark Grey Heather" = "Heather Dark Grey" and "navy-1" = "Navy" — 
 applied once per order (StockBatch `shopify:<STORE>:<orderId>`); a cancellation reverses those movements once.
 Shopify sales are never refused: if the count is short, stock stops at 0 and the note says "N not in stock".
 Walk-in sales = ordinary stock out. Shopify's own inventory is NOT updated (our app is the stock of record).
-Seeded by migration `20261107120000_stock_shopify_tshirts`: Bella Canvas 3001 (72) + Gildan 3000 (95; no
-heather-dark-grey in Small) in category "T-Shirt", tracked only in CHEETAH. Colors use the names Shopify puts in
+Seeded by migration `20261107120000_stock_shopify_tshirts`: Bella Canvas 3001 (72) + Gildan 3000 (96; Heather Dark Grey S
+added by `20261107140000_stock_gildan_hdg_small`) in category "T-Shirt", tracked only in CHEETAH. Colors use the names Shopify puts in
 ORDERS (the products CSV export has metaobject handles like `dark-grey` that do NOT match) — all 105 variants seen
 in real orders matched. A linked line whose variant matches nothing is logged as StockAudit `shopify.unmatched`
 (new color/renamed product → add the product / fix its `shopifyKey`). Refunds/order edits don't change stock.
