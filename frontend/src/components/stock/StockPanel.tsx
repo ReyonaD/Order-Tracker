@@ -327,6 +327,39 @@ function OverviewTab({ data, selected, onSelect, goTo, onSync, syncing, t, lang 
   );
 }
 
+// Products named "Model · Color · Size" (the Shopify T-shirts) show as one size × color table per model
+// instead of one card per variant.
+const SIZE_ORDER = ["XS", "S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL"];
+const VARIANT_NAME = /^(.+?) · (.+) · (XS|S|M|L|XL|2XL|3XL|4XL|5XL)$/;
+interface VariantModel<T> { model: string; colors: string[]; sizes: string[]; cells: Map<string, T> }
+function splitVariants<T extends { name: string }>(list: T[]): { models: VariantModel<T>[]; rest: T[] } {
+  const models = new Map<string, VariantModel<T>>();
+  const rest: T[] = [];
+  for (const p of list) {
+    const m = VARIANT_NAME.exec(p.name);
+    if (!m) { rest.push(p); continue; }
+    const g = models.get(m[1]) ?? { model: m[1], colors: [], sizes: [], cells: new Map<string, T>() };
+    models.set(m[1], g);
+    if (!g.colors.includes(m[2])) g.colors.push(m[2]);
+    if (!g.sizes.includes(m[3])) g.sizes.push(m[3]);
+    g.cells.set(`${m[2]}|${m[3]}`, p);
+  }
+  for (const g of models.values()) {
+    g.sizes.sort((a, b) => SIZE_ORDER.indexOf(a) - SIZE_ORDER.indexOf(b));
+    g.colors.sort((a, b) => a.localeCompare(b));
+  }
+  return { models: [...models.values()], rest };
+}
+const SWATCHES: Record<string, string> = {
+  black: "#1b1b1b", white: "#ffffff", red: "#c62828", navy: "#1f2a44", forest: "#1f4d2b", "kelly green": "#2e8b3e",
+  "light blue": "#9cc9e8", "light pink": "#f5c6d3", purple: "#5b3a8c", royal: "#2850a8", sand: "#d8c7a3", "sport grey": "#b9b9b9",
+  "heather dark grey": "#575757", "dark grey heather": "#575757", "heather maroon": "#74303b", maroon: "#5a1a22", orange: "#e8742a",
+  pink: "#f08cb0", "heather peach": "#f2b89a", "heather mauve": "#b98a99", "heather deep teal": "#2f6b6e",
+};
+function Swatch({ color }: { color: string }) {
+  return <i className="sk-swatch" style={{ background: SWATCHES[color.toLowerCase()] ?? "#c8c8c8" }} />;
+}
+
 // Stock in / out: tap product cards into a list, one transaction for the whole list.
 function MoveTab({ type, warehouses, categories, t, onDone }: { type: "in" | "out"; warehouses: Warehouse[]; categories: string[]; t: Strings; onDone: () => void }) {
   const [warehouseId, setWarehouseId] = useState(0);   // always asked first: a preselected one got stock booked to the wrong place
@@ -343,6 +376,7 @@ function MoveTab({ type, warehouses, categories, t, onDone }: { type: "in" | "ou
   });
   const all = items.data?.items ?? [];
   const shown = all.filter((p) => (!cat || p.category === cat) && p.name.toLowerCase().includes(search.trim().toLowerCase()));
+  const variants = splitVariants(shown);
   const ids = Object.keys(picked).map(Number);
   const save = useMutation({
     mutationFn: () => api.post<{ created: boolean }>("/stock/batch", {
@@ -396,8 +430,38 @@ function MoveTab({ type, warehouses, categories, t, onDone }: { type: "in" | "ou
             <input className="sk-input" aria-label={t.search} placeholder={t.search} value={search} onChange={(e) => setSearch(e.target.value)} />
           </label>
         </div>
+        {variants.models.map((g) => (
+          <section key={g.model} className="sk-panel sk-vgrid">
+            <h3>{g.model}</h3>
+            <div className="sk-vscroll">
+              <table>
+                <thead><tr><th />{g.sizes.map((size) => <th key={size}>{size}</th>)}</tr></thead>
+                <tbody>
+                  {g.colors.map((color) => (
+                    <tr key={color}>
+                      <th><Swatch color={color} />{color}</th>
+                      {g.sizes.map((size) => {
+                        const p = g.cells.get(`${color}|${size}`);
+                        return (
+                          <td key={size}>
+                            {p && (
+                              <button className={`sk-vcell ${p.status} ${picked[p.id] ? "on" : ""}`} title={p.name}
+                                disabled={type === "out" && p.quantity <= 0} onClick={() => toggle(p)}>
+                                {n2(p.quantity)}
+                              </button>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        ))}
         <div className="sk-cards">
-          {shown.map((p) => (
+          {variants.rest.map((p) => (
             <button key={p.id} className={`sk-card ${picked[p.id] ? "on" : ""}`} disabled={type === "out" && p.quantity <= 0} onClick={() => toggle(p)}>
               <ProductIcon name={p.name} />
               <div>
@@ -488,7 +552,11 @@ function AdjustTab({ warehouses, products, initial, t, onDone }: { warehouses: W
         </label>
         <label className="sk-field">{t.product}
           <select className="sk-select" value={f.productId} onChange={(e) => setF({ ...f, productId: Number(e.target.value) })}>
-            {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            {[...new Set(products.map((p) => p.category))].map((c) => (
+              <optgroup key={c} label={c}>
+                {products.filter((p) => p.category === c).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </optgroup>
+            ))}
           </select>
         </label>
         <label className="sk-field">{t.inSystem}<input className="sk-input" disabled value={`${n2(current)} ${product ? unitOf(t, product.unit) : ""}`} /></label>

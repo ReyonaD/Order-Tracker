@@ -237,3 +237,19 @@
   .sk { overflow: visible; background: #fff; }
   .sk::before, .sk-tabs, .sk-actions, .sk-chips, .sk-noprint { display: none !important; }
 }
+
+/* size × color table for variant products (T-shirts) */
+.sk-vgrid { padding: 14px 16px; margin-bottom: 14px; }
+.sk-vgrid h3 { font-size: 15px; font-weight: 700; margin-bottom: 10px; }
+.sk-vscroll { overflow-x: auto; }
+.sk-vgrid table { border-collapse: separate; border-spacing: 4px; }
+.sk-vgrid thead th { font-size: 12px; font-weight: 700; color: var(--sk-muted); text-align: center; padding: 0 2px 2px; }
+.sk-vgrid tbody th { text-align: left; font-size: 13px; font-weight: 600; white-space: nowrap; padding-right: 10px; }
+.sk-swatch { display: inline-block; width: 13px; height: 13px; border-radius: 50%; border: 1px solid rgba(0, 0, 0, .25); margin-right: 7px; vertical-align: -2px; }
+.sk-vcell { min-width: 52px; height: 36px; border-radius: 8px; border: 1px solid var(--sk-line); background: var(--sk-card); color: var(--sk-ink);
+  font: inherit; font-weight: 700; font-variant-numeric: tabular-nums; cursor: pointer; transition: border-color .12s, background .12s; }
+.sk-vcell:hover:not(:disabled) { border-color: var(--sk-teal); }
+.sk-vcell.low { background: var(--sk-amber-bg); color: var(--sk-amber); }
+.sk-vcell.out { background: var(--sk-red-bg); color: var(--sk-red); }
+.sk-vcell.on { background: var(--sk-teal); border-color: var(--sk-teal); color: #fff; box-shadow: 0 2px 8px rgba(15, 122, 138, .3); }
+.sk-vcell:disabled { opacity: .45; cursor: not-allowed; }
