@@ -244,7 +244,7 @@ model PrintEvent {
   id        String   @id @default(cuid())
   orderId   String
   part      Int
-  kind      String   // "downloaded" | "ripped" | "print" | "reprint" (the first two since 2026-10-02)
+  kind      String   // "downloaded" | "ripped" | "print" | "reprint" (the first two since 2026-10-02) | "reprint_downloaded" | "reprint_ripped" (2026-11-13: a reprint of a printed sheet)
   machine   String?
   operator  String?
   fileName  String?

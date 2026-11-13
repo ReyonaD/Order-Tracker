@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { api } from "../api/client";
 
 // Who did what, when — every step the floor reported for an order's sheets
@@ -22,7 +23,10 @@ export const shortTexasTime = (iso: string) => {
 export const fullTexasTime = (iso: string) =>
   new Date(iso).toLocaleString("en-US", { timeZone: TZ, weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 
-const KIND: Record<string, string> = { downloaded: "Downloaded", ripped: "RIP'd", print: "Printed", reprint: "REPRINT" };
+const KIND: Record<string, string> = {
+  downloaded: "Downloaded", ripped: "RIP'd", print: "Printed", reprint: "REPRINT",
+  reprint_downloaded: "REPRINT · Downloaded", reprint_ripped: "REPRINT · RIP'd",
+};
 
 // Steps reported before every stage was logged (only prints were) are rebuilt from the
 // sheet's own timestamps, so older orders still show their Downloaded / RIP'd times.
@@ -45,15 +49,41 @@ export default function PrintHistoryButton({ orderId, orderName, hasReprint }: {
   const [data, setData] = useState<{ sheets: Sheet[]; events: Ev[] } | null>(null);
   const [err, setErr] = useState("");
   const ref = useRef<HTMLSpanElement>(null);
+  const popRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
 
   useEffect(() => {
     if (!open) return;
     setData(null); setErr("");
     api.get<{ sheets: Sheet[]; events: Ev[] }>(`/orders/${orderId}/print-history`).then(setData).catch((e) => setErr(e instanceof Error ? e.message : "Failed"));
-    const onDoc = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    const inside = (t: EventTarget | null) => !!t && ((ref.current?.contains(t as Node) ?? false) || (popRef.current?.contains(t as Node) ?? false));
+    const onDoc = (e: MouseEvent) => { if (!inside(e.target)) setOpen(false); };
+    // the popover is fixed to the viewport: close it when the page/table scrolls under it
+    const onScroll = (e: Event) => { if (!inside(e.target)) setOpen(false); };
+    const onResize = () => setOpen(false);
     document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onResize);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onResize);
+    };
   }, [open, orderId]);
+
+  // Rendered in <body> (a table cell clips it and later rows cover it): placed under the
+  // button, right-aligned, flipped above it when there is no room below, kept on screen.
+  useLayoutEffect(() => {
+    if (!open) { setPos(null); return; }
+    const b = ref.current?.getBoundingClientRect(), p = popRef.current;
+    if (!b || !p) return;
+    const w = p.offsetWidth, h = p.offsetHeight, vw = window.innerWidth, vh = window.innerHeight;
+    let top = b.bottom + 4;
+    if (top + h > vh - 8 && b.top - 4 - h >= 8) top = b.top - 4 - h;
+    top = Math.max(8, Math.min(top, vh - h - 8));
+    const left = Math.max(8, Math.min(b.right - w, vw - w - 8));
+    setPos({ top, left });
+  }, [open, data, err]);
 
   const rows = data ? timeline(data.sheets, data.events) : [];
 
@@ -61,8 +91,9 @@ export default function PrintHistoryButton({ orderId, orderName, hasReprint }: {
     <span className="ph-wrap" ref={ref}>
       <button type="button" className={`ph-btn ${hasReprint ? "ph-has-reprint" : ""}`} title="Print history — every step (downloaded, RIP'd, printed, reprints) with time, machine and operator"
         onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}>⟳</button>
-      {open && (
-        <div className="ph-pop" onClick={(e) => e.stopPropagation()}>
+      {open && createPortal(
+        <div className="ph-pop" ref={popRef} onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}
+          style={pos ? { top: pos.top, left: pos.left } : { top: -9999, left: -9999 }}>
           <div className="ph-head"><b>{orderName}</b> · print history <span className="ph-tz">Texas time</span></div>
           {err && <div className="ph-empty">{err}</div>}
           {!data && !err && <div className="ph-empty">Loading…</div>}
@@ -72,7 +103,7 @@ export default function PrintHistoryButton({ orderId, orderName, hasReprint }: {
               <thead><tr><th>When</th><th>What</th><th>Sheet</th><th>Machine</th><th>Operator</th></tr></thead>
               <tbody>
                 {rows.map((ev) => (
-                  <tr key={ev.id} className={ev.kind === "reprint" ? "ph-reprint" : ""}>
+                  <tr key={ev.id} className={ev.kind.startsWith("reprint") ? "ph-reprint" : ""}>
                     <td title={fullTexasTime(ev.at)}>{shortTexasTime(ev.at)}</td>
                     <td><span className={`ph-kind ${ev.kind}`}>{KIND[ev.kind] || ev.kind}</span></td>
                     <td title={ev.fileName || ""}>#{ev.part}{(() => { const s = data.sheets.find((x) => x.part === ev.part); return s && s.total > 1 ? `/${s.total}` : ""; })()}</td>
@@ -83,7 +114,8 @@ export default function PrintHistoryButton({ orderId, orderName, hasReprint }: {
               </tbody>
             </table>
           )}
-        </div>
+        </div>,
+        document.body,
       )}
     </span>
   );

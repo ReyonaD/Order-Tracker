@@ -170,8 +170,8 @@ integrationRouter.post("/print", checkKey, async (req, res) => {
     for (const o of orders) {
       if (reprint) {
         // A reprint of an already printed sheet must not overwrite who printed it first.
-        // Downloaded/RIP'd stages of a reprint are ignored (the order stays Printed);
-        // the printed stage is counted + logged.
+        // Downloaded/RIP'd stages of a reprint leave the sheet alone (the order stays Printed)
+        // but are logged to the print history; the printed stage is counted + logged.
         const existing = await prisma.sheet.findUnique({ where: { orderId_part: { orderId: o.id, part } } });
         if (existing && existing.status === "PRINTED") {
           if (status === "PRINTED") {
@@ -181,6 +181,9 @@ integrationRouter.post("/print", checkKey, async (req, res) => {
             });
             await prisma.printEvent.create({ data: { orderId: o.id, part, kind: "reprint", machine, operator, fileName, at: now } });
             await rollupOrder(o.id);
+          } else {
+            const kind = status === "RIPPED" ? "reprint_ripped" : "reprint_downloaded";
+            await prisma.printEvent.create({ data: { orderId: o.id, part, kind, machine, operator, fileName, at: now } });
           }
           continue;
         }
