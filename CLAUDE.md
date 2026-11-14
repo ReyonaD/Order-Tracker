@@ -106,6 +106,24 @@ Per-store monthly income statements (`FinanceStatement`, `data` JSON = `{values,
   xlsx workbooks (Jan–Jul 2026, 10 stores).
 - COGS is manual unless the operator runs ⚙ COGS. Annual "2025" summary sheets not imported.
 
+## Purchases (Finance sub-tab, 2026-11-14) — `routes/purchases.ts`, `services/purchaseReader.ts`, `services/purchaseGrouper.ts`, `frontend/src/components/purchases/`
+Supplier invoices (PDF/PNG/JPG/GIF/WEBP, ≤20 MB, ≤30 per upload) are stored in `PurchaseInvoice.fileData`
+(sha256 `fileHash` unique → the same file is never added twice) and read by Claude into header + `PurchaseItem`s.
+Same `requireFinance` gate as Finance. Needs Railway var **`ANTHROPIC_API_KEY`** (workspace-scoped key; without
+it uploads end `failed` with that message).
+- **Read**: `claude-haiku-5-5` (structured output); if `checkTotals` fails (lines ≠ subtotal, or subtotal+tax+
+  shipping−discount ≠ total) it is read once more with `claude-sonnet-5-5` (server-side refusal fallback on).
+  In-process queue, 2 at a time; `processing` rows are re-queued on startup. Prompt rules learned from real
+  invoices: "26X13" = qty 26 × $13; a total printed on an item line isn't that line's total; US dates m/d/y.
+- **Review**: status `processing → review → approved` (or `failed`). The drawer shows the original next to
+  editable fields; PUT replaces the items (lines keep their group when the description is unchanged).
+  Only approved invoices feed Products & prices. Approved → "Edit" = unapprove.
+- **Grouping** (`category > family > variant`, fixed category list in `PURCHASE_CATEGORIES`): Haiku, text only,
+  runs after each read and via `POST /purchases/group` for ungrouped lines. A description already grouped is
+  copied without a model call; existing families are passed in so other suppliers' items join them.
+  `PATCH /purchases/groups` = manual rename/move (by description or whole family). $0 lines ("FREE GIFT")
+  are listed but excluded from price figures. Cost ≈ 0.1¢ per invoice read + grouping.
+
 ## Print progress from the floor (DTF Monitor → `/integrations/print`)
 Two modes on the same endpoint (`backend/src/routes/integrations.ts`, `X-Api-Key`):
 - **Order-level (legacy)**: `{orderCode, machine, operator, printStatus}` sets the order's
@@ -127,8 +145,10 @@ Two modes on the same endpoint (`backend/src/routes/integrations.ts`, `X-Api-Key
   `REPRINT`, detected by DTF Monitor) does NOT overwrite the Sheet's original printer; it increments
   `Sheet.reprints`, sets `lastReprint*`, and logs a `PrintEvent` (kind print|reprint — every confirmed
   print is logged). Rollup shows `Picasso_M_1 · R: Picasso_M_3` / `EMRE · R: ALI` in the order's
-  machine/operator columns; `order-status` returns `events`. Reprint downloaded/RIP'd stages are
-  ignored so the order stays `Printed`.
+  machine/operator columns; `order-status` returns `events`. Reprint downloaded/RIP'd stages leave the
+  sheet alone so the order stays `Printed`, but (since 2026-11-13) are logged as `PrintEvent`
+  `reprint_downloaded` / `reprint_ripped` so they show in the ⟳ history (they used to vanish).
+  The ⟳ popover renders in `<body>` (portal, fixed position) — inside the table cell it was clipped.
 - **Times of the floor's actions (2026-10-02):** `Order.printStatusAt` = when the print status last
   changed (set by the per-sheet rollup from the sheets' `downloadedAt`/`rippedAt`/`printedAt`/
   `lastReprintAt`, by the legacy order-level call, and by a manual edit of the Print column; null

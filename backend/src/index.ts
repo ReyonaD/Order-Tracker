@@ -20,6 +20,8 @@ import { financeRouter } from "./routes/finance";
 import { chaseRouter } from "./routes/chase";
 import { stockRouter, stockIntegrationRouter } from "./routes/stock";
 import { startStockJobs } from "./services/stockJobs";
+import { purchaseRouter } from "./routes/purchases";
+import { resumePendingReads } from "./services/purchaseReader";
 
 const app = express();
 
@@ -47,6 +49,7 @@ app.use("/reports", reportRouter);
 app.use("/sheets", sheetRouter);
 app.use("/staff", staffRouter);
 app.use("/finance", financeRouter);
+app.use("/purchases", purchaseRouter);
 app.use("/chase", chaseRouter);
 app.use("/stock", stockRouter);
 
@@ -62,6 +65,7 @@ if (fs.existsSync(path.join(clientDir, "index.html"))) {
 const server = app.listen(env.port, () => {
   console.log(`Order Tracker API listening on port ${env.port}`);
   startStockJobs();
+  resumePendingReads().catch((e) => console.error("Purchases resume:", e));
 });
 
 // Graceful shutdown

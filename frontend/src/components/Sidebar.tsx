@@ -68,6 +68,14 @@ export default function Sidebar({ activeView, onSelect, canReports, canSheets, c
                 💰 Finance
               </button>
             )}
+            {canFinance && (
+              <button
+                className={`sidebar-item sidebar-reports sidebar-sub ${activeView === "purchases" ? "active" : ""}`}
+                onClick={() => onSelect("purchases")}
+              >
+                🧾 Purchases
+              </button>
+            )}
         </div>
         {GROUP_ORDER.map((group) => {
           const items = VIEWS.filter((v) => v.group === group);

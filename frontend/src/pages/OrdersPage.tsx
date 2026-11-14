@@ -12,6 +12,7 @@ import ReportsPanel from "../components/ReportsPanel";
 import SheetsPanel from "../components/SheetsPanel";
 import StaffPanel from "../components/StaffPanel";
 import FinancePanel from "../components/FinancePanel";
+import PurchasesPanel from "../components/purchases/PurchasesPanel";
 import ChasePanel from "../components/ChasePanel";
 import FloorQueuePanel from "../components/FloorQueuePanel";
 import StockPanel from "../components/stock/StockPanel";
@@ -33,10 +34,11 @@ export default function OrdersPage() {
   const isSheets = activeView === "sheets";
   const isStaff = activeView === "staff";
   const isFinance = activeView === "finance";
+  const isPurchases = activeView === "purchases";
   const isChase = activeView === "chase";
   const isFloor = activeView === "floor";
   const isStock = activeView === "stock";
-  const isPanel = isReports || isSheets || isStaff || isFinance || isChase || isFloor || isStock;
+  const isPanel = isReports || isSheets || isStaff || isFinance || isPurchases || isChase || isFloor || isStock;
   const canReports = user?.role === "ADMIN" || !!user?.canViewReports;
   const canSheets = user?.role === "ADMIN" || !!user?.canViewSheets;
   const canStaff = user?.role === "ADMIN" || !!user?.canViewStaff;
@@ -152,7 +154,7 @@ export default function OrdersPage() {
 
       <div className="main">
         <header className="topbar">
-          <div className="topbar-title">{isReports ? "Reports" : isSheets ? "Sheets" : isStaff ? "Staff" : isFinance ? "Finance" : isStock ? "Stock Inventory" : view.label}</div>
+          <div className="topbar-title">{isReports ? "Reports" : isSheets ? "Sheets" : isStaff ? "Staff" : isFinance ? "Finance" : isPurchases ? "Purchases" : isStock ? "Stock Inventory" : view.label}</div>
           {!isPanel && (
             <>
               <input
@@ -220,6 +222,8 @@ export default function OrdersPage() {
           <StaffPanel />
         ) : isFinance ? (
           <FinancePanel />
+        ) : isPurchases && canFinance ? (
+          <PurchasesPanel />
         ) : isChase ? (
           <ChasePanel isAdmin={user?.role === "ADMIN"} />
         ) : isStock ? (

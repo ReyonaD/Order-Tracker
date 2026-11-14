@@ -383,3 +383,61 @@ model StockAudit {
 
   @@index([createdAt])
 }
+
+// ---------------------------------------------------------------------------
+// Purchases (Finance) — supplier invoices uploaded as PDF/image. Claude reads each
+// file into a header + line items; a Finance user checks and approves it. Approved
+// items feed the purchase list and the per-product price history.
+// ---------------------------------------------------------------------------
+model PurchaseInvoice {
+  id            String         @id @default(cuid())
+  fileName      String
+  mimeType      String
+  fileSize      Int
+  fileHash      String         @unique // sha256 of the file: the same invoice is never stored twice
+  fileData      Bytes
+  status        String         @default("processing") // processing | review | approved | failed
+  supplier      String?
+  invoiceNumber String?
+  invoiceDate   String?        // YYYY-MM-DD as printed on the invoice
+  currency      String?        // ISO code, e.g. USD
+  subtotal      Float?
+  tax           Float?
+  shipping      Float?
+  discount      Float?
+  total         Float?
+  checkNote     String?        // why the read needs a closer look (totals don't add up…)
+  aiModel       String?        // model that produced the current read
+  error         String?
+  uploadedBy    String?
+  approvedBy    String?
+  approvedAt    DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  items         PurchaseItem[]
+
+  @@index([status])
+  @@index([invoiceDate])
+  @@index([supplier])
+}
+
+model PurchaseItem {
+  id          String          @id @default(cuid())
+  invoiceId   String
+  invoice     PurchaseInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  position    Int
+  description String
+  sku         String?
+  quantity    Float?
+  unit        String?
+  unitPrice   Float?
+  lineTotal   Float?
+  // AI grouping for the price history: category (fixed list) > family (variants that differ
+  // only in color etc. share it, e.g. "DTF Ink 1L") > variant ("Cyan"). Editable by hand.
+  category    String?
+  family      String?
+  variant     String?
+
+  @@index([invoiceId])
+  @@index([family])
+}

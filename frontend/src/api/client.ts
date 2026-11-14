@@ -83,3 +83,23 @@ export function qs(params: Record<string, string | number | undefined | null>): 
   const s = sp.toString();
   return s ? `?${s}` : "";
 }
+
+// Upload supplier invoices (multipart, several at once) to Purchases.
+export async function uploadPurchaseFiles(files: File[]) {
+  const token = getToken();
+  const form = new FormData();
+  files.forEach((f) => form.append("files", f));
+  const res = await fetch(`${API_URL}/purchases/upload`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: form,
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new ApiError(res.status, body?.message || "Upload failed");
+  return body as { results: { fileName: string; outcome: "added" | "duplicate" | "rejected"; message?: string; id?: string }[] };
+}
+
+// The original invoice file (auth via ?token= so it opens in an <iframe>/<img>).
+export function purchaseFileUrl(id: string): string {
+  return `${API_URL}/purchases/${id}/file?token=${encodeURIComponent(getToken() || "")}`;
+}
