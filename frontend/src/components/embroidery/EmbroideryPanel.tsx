@@ -20,7 +20,7 @@ interface EmbOrder {
 }
 interface SyncInfo { configured: boolean; last: { at: string; error: string | null } | null }
 interface Meta {
-  options: Option[]; shops: string[]; counts: { todo: number; nolabel: number };
+  options: Option[]; shops: string[]; counts: { todo: number; nolabel: number }; ssWebUrl: string;
   sync: { shipstation: SyncInfo; dropbox: SyncInfo };
 }
 
@@ -177,6 +177,10 @@ function OrdersTab({ meta }: { meta?: Meta }) {
                       <span className="emb-caret">{isOpen ? "▾" : "▸"}</span>{o.orderNumber}
                     </button>
                     {o.note && <span className="emb-notedot" title={o.note}>●</span>}
+                    {meta && (
+                      <a className="emb-sslink" title="Open in ShipStation" target="_blank" rel="noreferrer"
+                        href={`${meta.ssWebUrl}/orders/all-orders-search-result?quickSearch=${encodeURIComponent(o.orderNumber)}`}>↗</a>
+                    )}
                   </td>
                   <td><span className="emb-shop">{o.shopName ?? "—"}</span></td>
                   <td>{pick(o, "customerService")}</td>

@@ -258,6 +258,8 @@ Replaces the hand-filled Google Sheet "EMB-EMBROIDERY ORDERS".
   shipped), so the column is called "Label created" and **To do = label created + not PRINTED/CANCELED**, labels from
   `EMB_TODO_FROM` (YYYY-MM-DD, default 2026-11-01; the November sheet was imported, older labels were handled on paper) on. Other views:
   No design yet, No label yet, Printed, Label created, Cancelled, All (`VIEW_WHERE` in routes/embroidery.ts).
+- **↗ next to the order number** opens ShipStation's order search for that number (ShipStation has no direct order link;
+  the order page URL uses an internal key the API doesn't give). Host = `SS_WEB_URL` (account's `https://shipNN.shipstation.com`).
 - **CANCELED is one state**: picking (or clearing) CANCELED in order status or print status sets (clears) the other
   (PATCH handler); the Cancelled view also matches orderStatus CANCELED.
 - Design status **READY DESIGN** = made from a ready-made design (no Dropbox file); such orders are left out of

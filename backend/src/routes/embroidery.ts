@@ -98,6 +98,9 @@ embroideryRouter.get("/meta", safe(async (_req, res) => {
     status: "success", options,
     shops: shops.map((s) => s.shopName).filter(Boolean),
     counts: { todo, nolabel },
+    // ShipStation has no direct order link; its order search by number is the closest.
+    // The ship## host differs per account: SS_WEB_URL (e.g. https://ship11.shipstation.com).
+    ssWebUrl: (process.env.SS_WEB_URL || "https://ship.shipstation.com").replace(/\/+$/, ""),
     sync: {
       shipstation: { configured: ssConfigured(), last: syncStatus() },
       dropbox: { configured: dbxConfigured(), last: dbxStatus() },
