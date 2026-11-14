@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api, qs } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
-import { Dropdowns, FacetSelection, FacetsResponse, FilterCond, OrdersResponse, PermissionsMatrix, Role } from "../types";
+import { Dropdowns, FacetSelection, FacetsResponse, FilterCond, OrdersResponse, PermissionsMatrix, Role, AdminUser } from "../types";
 import { VIEWS } from "../views";
 import Sidebar from "../components/Sidebar";
 import FacetPanel from "../components/FacetPanel";
@@ -27,21 +27,31 @@ export default function OrdersPage() {
   const [facet, setFacet] = useState<FacetSelection>(emptyFacet);
   const [facetOpen, setFacetOpen] = useState(() => localStorage.getItem("ot_facet_open") !== "false");
   const [columnFilters, setColumnFilters] = useState<FilterCond[]>([]);
-  const [previewRole, setPreviewRole] = useState(""); // admin "view as" role
+  const [preview, setPreview] = useState(""); // admin "view as": "" | "role:<ROLE>" | "user:<id>"
   const [page, setPage] = useState(1);
   const pageSize = 100;
 
   // "View as" (admin preview) shows the tabs a plain user of that role gets: the per-user
   // extras (Reports, Sheets, Staff, Embroidery, Finance boxes) are off, EMBROIDERY sees only Embroidery.
-  const previewOn = user?.role === "ADMIN" && previewRole !== "";
-  const embroideryOnly = previewOn && previewRole === "EMBROIDERY";
-  const canReports = !previewOn && (user?.role === "ADMIN" || !!user?.canViewReports);
-  const canSheets = !previewOn && (user?.role === "ADMIN" || !!user?.canViewSheets);
-  const canStaff = !previewOn && (user?.role === "ADMIN" || !!user?.canViewStaff);
-  const canEmbroidery = embroideryOnly || (!previewOn && (user?.role === "ADMIN" || !!user?.canViewEmbroidery));
+  // "View as" a user takes that account's role AND its own tab boxes.
+  const usersQuery = useQuery({
+    queryKey: ["users"], queryFn: () => api.get<{ users: AdminUser[] }>("/users"),
+    enabled: user?.role === "ADMIN", staleTime: 60_000,
+  });
+  const previewOn = user?.role === "ADMIN" && preview !== "";
+  const previewUser = preview.startsWith("user:") ? usersQuery.data?.users.find((u) => u.id === preview.slice(5)) : undefined;
+  const previewRole = previewUser ? previewUser.role : preview.startsWith("role:") ? preview.slice(5) : "";
+  // whose tab access applies: the previewed user, a plain user of the previewed role (no boxes), or me
+  const acc = previewUser ?? (previewOn ? null : user);
+  const accRole = previewOn ? previewRole : user?.role;
+  const embroideryOnly = accRole === "EMBROIDERY";
+  const canReports = accRole === "ADMIN" || !!acc?.canViewReports;
+  const canSheets = accRole === "ADMIN" || !!acc?.canViewSheets;
+  const canStaff = accRole === "ADMIN" || !!acc?.canViewStaff;
+  const canEmbroidery = embroideryOnly || accRole === "ADMIN" || !!acc?.canViewEmbroidery;
   // Finance is sensitive: admins do NOT get it automatically — the explicit
   // (password-gated) canViewFinance flag is required for everyone.
-  const canFinance = !previewOn && !!user?.canViewFinance;
+  const canFinance = !!acc?.canViewFinance;
   // a tab the previewed role can't open falls back to All Orders
   useEffect(() => {
     const allowed: Record<string, boolean> = {
@@ -112,7 +122,7 @@ export default function OrdersPage() {
 
   // Admins can preview the app as another role (see what that role sees/edits).
   const isAdmin = user?.role === "ADMIN";
-  const previewing = isAdmin && previewRole !== "";
+  const previewing = previewOn && previewRole !== "";
   const effectiveRole: Role = previewing ? (previewRole as Role) : user!.role;
   const effectivePerms = previewing ? permissions?.[previewRole] : permissions?.[user!.role];
 
@@ -199,13 +209,20 @@ export default function OrdersPage() {
           )}
           <div className="spacer" />
           {isAdmin && (
-            <label className={`view-as ${previewing ? "active" : ""}`} title="Preview the app as another role">
+            <label className={`view-as ${previewing ? "active" : ""}`} title="Preview the app as another role or as a specific user">
               👁 View as
-              <select value={previewRole} onChange={(e) => setPreviewRole(e.target.value)}>
+              <select value={preview} onChange={(e) => setPreview(e.target.value)}>
                 <option value="">Admin (me)</option>
-                {previewRoles.map((r) => (
-                  <option key={r} value={r}>{r.replace("_", " ")}</option>
-                ))}
+                <optgroup label="Roles">
+                  {previewRoles.map((r) => (
+                    <option key={r} value={`role:${r}`}>{r.replace("_", " ")}</option>
+                  ))}
+                </optgroup>
+                <optgroup label="Users">
+                  {(usersQuery.data?.users ?? []).filter((u) => u.active && u.id !== user?.id)
+                    .sort((a, b) => a.name.localeCompare(b.name))
+                    .map((u) => <option key={u.id} value={`user:${u.id}`}>{u.name} ({u.role.replace("_", " ")})</option>)}
+                </optgroup>
               </select>
             </label>
           )}
@@ -225,9 +242,13 @@ export default function OrdersPage() {
 
         {previewing && (
           <div className="preview-banner">
-            Previewing as <b>{previewRole.replace("_", " ")}</b> — tabs, columns and editing reflect this role
-            (per-user extras such as Reports or Embroidery access are not included).
-            <button onClick={() => setPreviewRole("")}>Exit preview</button>
+            {previewUser ? (
+              <>Previewing as <b>{previewUser.name}</b> ({previewUser.role.replace("_", " ")}) — tabs, columns and editing as this account sees them.</>
+            ) : (
+              <>Previewing as <b>{previewRole.replace("_", " ")}</b> — tabs, columns and editing reflect this role
+              (per-user extras such as Reports or Embroidery access are not included).</>
+            )}
+            <button onClick={() => setPreview("")}>Exit preview</button>
           </div>
         )}
 
