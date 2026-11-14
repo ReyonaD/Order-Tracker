@@ -138,7 +138,10 @@ embroideryRouter.patch("/orders/:id", safe(async (req, res) => {
 
 /** Packing-slip barcode → PRINTED. */
 embroideryRouter.post("/scan", safe(async (req, res) => {
-  const code = String(req.body?.code ?? "").trim().replace(/^#/, "");
+  const raw = String(req.body?.code ?? "").trim();
+  // ShipStation's own "Scan to View" barcode ([Barcode] on a packing slip) reads ^#^<orderId>^
+  const ss = raw.match(/^\^#\^(\d+)\^?$/);
+  const code = ss ? ss[1] : raw.replace(/^#/, "");
   if (!code) { res.status(400).json({ status: "error", message: "Empty code" }); return; }
   // the barcode is the order number; ShipStation's own order id is accepted too
   const asId = /^\d{1,10}$/.test(code) && Number(code) <= 2147483647 ? [{ ssOrderId: Number(code) }] : [];

@@ -23,6 +23,7 @@ import { startStockJobs } from "./services/stockJobs";
 import { purchaseRouter } from "./routes/purchases";
 import { resumePendingReads } from "./services/purchaseReader";
 import { embroideryRouter, startEmbroideryJobs } from "./routes/embroidery";
+import { barcodeRouter } from "./routes/barcode";
 
 const app = express();
 
@@ -52,6 +53,8 @@ app.use("/staff", staffRouter);
 app.use("/finance", financeRouter);
 app.use("/purchases", purchaseRouter);
 app.use("/embroidery", embroideryRouter);
+// public (no login): barcode images printed on ShipStation packing slips
+app.use("/barcode", barcodeRouter);
 app.use("/chase", chaseRouter);
 app.use("/stock", stockRouter);
 

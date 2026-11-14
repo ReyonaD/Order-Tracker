@@ -251,6 +251,9 @@ Replaces the hand-filled Google Sheet "EMB-EMBROIDERY ORDERS".
   still links. Link = `/embroidery/design/:id?token=` → 302 to a Dropbox temporary link.
 - **PRINTED by barcode**: "Scan printed" tab keeps focus in one box (USB scanner types + Enter) → `POST /embroidery/scan`
   (order number, or ShipStation orderId); unknown numbers are looked up in ShipStation once. Records printedBy/printedAt.
+  ShipStation's own packing-slip `[Barcode]` ("Scan to View") reads `^#^<orderId>^` — the scan maps it to ssOrderId.
+  Fallback barcode image: public `GET /barcode/<code>.png` (Code 128, bwip-js; plain path because ShipStation's slip
+  renderer showed nothing for a query-string image URL).
   `ssOrderId` is int4 — never put a 10-digit order number into it (it overflowed once and hung the request).
 - Manual columns (customer service, order status, design status, logo/text, prepared by, print status) use `EmbOption`
   lists with pill colors, edited from "Edit lists". Prepared By stays manual (the designer).
