@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api, qs } from "../api/client";
@@ -31,6 +31,24 @@ export default function OrdersPage() {
   const [page, setPage] = useState(1);
   const pageSize = 100;
 
+  // "View as" (admin preview) shows the tabs a plain user of that role gets: the per-user
+  // extras (Reports, Sheets, Staff, Embroidery, Finance boxes) are off, EMBROIDERY sees only Embroidery.
+  const previewOn = user?.role === "ADMIN" && previewRole !== "";
+  const embroideryOnly = previewOn && previewRole === "EMBROIDERY";
+  const canReports = !previewOn && (user?.role === "ADMIN" || !!user?.canViewReports);
+  const canSheets = !previewOn && (user?.role === "ADMIN" || !!user?.canViewSheets);
+  const canStaff = !previewOn && (user?.role === "ADMIN" || !!user?.canViewStaff);
+  const canEmbroidery = embroideryOnly || (!previewOn && (user?.role === "ADMIN" || !!user?.canViewEmbroidery));
+  // Finance is sensitive: admins do NOT get it automatically — the explicit
+  // (password-gated) canViewFinance flag is required for everyone.
+  const canFinance = !previewOn && !!user?.canViewFinance;
+  // a tab the previewed role can't open falls back to All Orders
+  useEffect(() => {
+    const allowed: Record<string, boolean> = {
+      reports: canReports, sheets: canSheets, staff: canStaff, finance: canFinance, purchases: canFinance, embroidery: canEmbroidery,
+    };
+    if (allowed[activeView] === false) setActiveView("all");
+  }, [activeView, canReports, canSheets, canStaff, canFinance, canEmbroidery]);
   const isReports = activeView === "reports";
   const isSheets = activeView === "sheets";
   const isStaff = activeView === "staff";
@@ -40,14 +58,7 @@ export default function OrdersPage() {
   const isFloor = activeView === "floor";
   const isStock = activeView === "stock";
   const isEmbroidery = activeView === "embroidery";
-  const isPanel = isReports || isSheets || isStaff || isFinance || isPurchases || isChase || isFloor || isStock || isEmbroidery;
-  const canReports = user?.role === "ADMIN" || !!user?.canViewReports;
-  const canSheets = user?.role === "ADMIN" || !!user?.canViewSheets;
-  const canStaff = user?.role === "ADMIN" || !!user?.canViewStaff;
-  const canEmbroidery = user?.role === "ADMIN" || !!user?.canViewEmbroidery;
-  // Finance is sensitive: admins do NOT get it automatically — the explicit
-  // (password-gated) canViewFinance flag is required for everyone.
-  const canFinance = !!user?.canViewFinance;
+  const isPanel = isReports || isSheets || isStaff || isFinance || isPurchases || isChase || isFloor || isStock || isEmbroidery || embroideryOnly;
   const view = useMemo(() => VIEWS.find((v) => v.key === activeView) ?? VIEWS[0], [activeView]);
 
   // Single-store views break the facet down by pickup/shipping; multi-store views by store.
@@ -117,6 +128,7 @@ export default function OrdersPage() {
         canStaff={canStaff}
         canEmbroidery={canEmbroidery}
         canFinance={canFinance}
+        embroideryOnly={embroideryOnly}
         onSelect={(k) => {
           setActiveView(k);
           setFacet(emptyFacet);
@@ -158,7 +170,7 @@ export default function OrdersPage() {
 
       <div className="main">
         <header className="topbar">
-          <div className="topbar-title">{isReports ? "Reports" : isSheets ? "Sheets" : isStaff ? "Staff" : isFinance ? "Finance" : isPurchases ? "Purchases" : isStock ? "Stock Inventory" : isEmbroidery ? "Embroidery" : view.label}</div>
+          <div className="topbar-title">{isReports ? "Reports" : isSheets ? "Sheets" : isStaff ? "Staff" : isFinance ? "Finance" : isPurchases ? "Purchases" : isStock ? "Stock Inventory" : isEmbroidery || embroideryOnly ? "Embroidery" : view.label}</div>
           {!isPanel && (
             <>
               <input
@@ -213,18 +225,21 @@ export default function OrdersPage() {
 
         {previewing && (
           <div className="preview-banner">
-            Previewing as <b>{previewRole.replace("_", " ")}</b> — columns and editing reflect this role.
+            Previewing as <b>{previewRole.replace("_", " ")}</b> — tabs, columns and editing reflect this role
+            (per-user extras such as Reports or Embroidery access are not included).
             <button onClick={() => setPreviewRole("")}>Exit preview</button>
           </div>
         )}
 
-        {isReports ? (
+        {embroideryOnly ? (
+          <EmbroideryPanel />
+        ) : isReports && canReports ? (
           <ReportsPanel />
-        ) : isSheets ? (
+        ) : isSheets && canSheets ? (
           <SheetsPanel />
-        ) : isStaff ? (
+        ) : isStaff && canStaff ? (
           <StaffPanel />
-        ) : isFinance ? (
+        ) : isFinance && canFinance ? (
           <FinancePanel />
         ) : isPurchases && canFinance ? (
           <PurchasesPanel />

@@ -7,12 +7,26 @@ interface Props {
   canSheets?: boolean;
   canStaff?: boolean;
   canEmbroidery?: boolean;
+  /** "View as" EMBROIDERY: that role sees nothing but the Embroidery page */
+  embroideryOnly?: boolean;
   canFinance?: boolean;
 }
 
 const GROUP_ORDER: ViewDef["group"][] = ["all", "stores", "production", "deadline", "status"];
 
-export default function Sidebar({ activeView, onSelect, canReports, canSheets, canStaff, canEmbroidery, canFinance }: Props) {
+export default function Sidebar({ activeView, onSelect, canReports, canSheets, canStaff, canEmbroidery, canFinance, embroideryOnly }: Props) {
+  if (embroideryOnly) {
+    return (
+      <aside className="sidebar">
+        <div className="sidebar-brand">Order Tracker</div>
+        <nav>
+          <div className="sidebar-group">
+            <button className="sidebar-item sidebar-reports active">🧵 Embroidery</button>
+          </div>
+        </nav>
+      </aside>
+    );
+  }
   return (
     <aside className="sidebar">
       <div className="sidebar-brand">Order Tracker</div>
