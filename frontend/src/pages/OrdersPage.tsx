@@ -44,6 +44,7 @@ export default function OrdersPage() {
   const canReports = user?.role === "ADMIN" || !!user?.canViewReports;
   const canSheets = user?.role === "ADMIN" || !!user?.canViewSheets;
   const canStaff = user?.role === "ADMIN" || !!user?.canViewStaff;
+  const canEmbroidery = user?.role === "ADMIN" || !!user?.canViewEmbroidery;
   // Finance is sensitive: admins do NOT get it automatically — the explicit
   // (password-gated) canViewFinance flag is required for everyone.
   const canFinance = !!user?.canViewFinance;
@@ -114,6 +115,7 @@ export default function OrdersPage() {
         canReports={canReports}
         canSheets={canSheets}
         canStaff={canStaff}
+        canEmbroidery={canEmbroidery}
         canFinance={canFinance}
         onSelect={(k) => {
           setActiveView(k);
@@ -230,7 +232,7 @@ export default function OrdersPage() {
           <ChasePanel isAdmin={user?.role === "ADMIN"} />
         ) : isStock ? (
           <StockPanel />
-        ) : isEmbroidery ? (
+        ) : isEmbroidery && canEmbroidery ? (
           <EmbroideryPanel />
         ) : isFloor ? (
           <FloorQueuePanel onOpenInOrders={(code) => { setActiveView("all"); setFacet(emptyFacet); setStatusFilter(""); setSearch(code); setPage(1); }} />

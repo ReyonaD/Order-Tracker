@@ -18,6 +18,7 @@ export default function UsersAdmin() {
   const [canViewReports, setCanViewReports] = useState(false);
   const [canViewSheets, setCanViewSheets] = useState(false);
   const [canViewStaff, setCanViewStaff] = useState(false);
+  const [canViewEmbroidery, setCanViewEmbroidery] = useState(false);
   const [canViewFinance, setCanViewFinance] = useState(false);
   const [canManageStock, setCanManageStock] = useState(false);
   const [error, setError] = useState("");
@@ -25,9 +26,9 @@ export default function UsersAdmin() {
   const invalidate = () => qc.invalidateQueries({ queryKey: ["users"] });
 
   const create = useMutation({
-    mutationFn: (financePassword?: string) => api.post("/users", { email, name, password, role, canViewReports, canViewSheets, canViewStaff, canViewFinance, canManageStock, financePassword }),
+    mutationFn: (financePassword?: string) => api.post("/users", { email, name, password, role, canViewReports, canViewSheets, canViewStaff, canViewEmbroidery, canViewFinance, canManageStock, financePassword }),
     onSuccess: () => {
-      setEmail(""); setName(""); setPassword(""); setRole("DESIGNER"); setCanViewReports(false); setCanViewSheets(false); setCanViewStaff(false); setCanViewFinance(false); setCanManageStock(false); setError("");
+      setEmail(""); setName(""); setPassword(""); setRole("DESIGNER"); setCanViewReports(false); setCanViewSheets(false); setCanViewStaff(false); setCanViewEmbroidery(false); setCanViewFinance(false); setCanManageStock(false); setError("");
       invalidate();
     },
     onError: (e) => setError(e instanceof Error ? e.message : "Failed"),
@@ -87,6 +88,9 @@ export default function UsersAdmin() {
           <label className="inline-check" title="Grant access to the Staff tab">
             <input type="checkbox" checked={canViewStaff} onChange={(e) => setCanViewStaff(e.target.checked)} /> Staff
           </label>
+          <label className="inline-check" title="Grant access to the Embroidery tab">
+            <input type="checkbox" checked={canViewEmbroidery} onChange={(e) => setCanViewEmbroidery(e.target.checked)} /> Embroidery
+          </label>
           <label className="inline-check" title="May receive stock, transfer, reverse and edit products">
             <input type="checkbox" checked={canManageStock} onChange={(e) => setCanManageStock(e.target.checked)} /> Stock
           </label>
@@ -100,7 +104,7 @@ export default function UsersAdmin() {
 
       <table className="admin-table">
         <thead>
-          <tr><th>Name</th><th>Email</th><th>Role</th><th>Active</th><th>Reports</th><th>Sheets</th><th>Staff</th><th>Stock</th><th>Finance</th><th>Actions</th></tr>
+          <tr><th>Name</th><th>Email</th><th>Role</th><th>Active</th><th>Reports</th><th>Sheets</th><th>Staff</th><th>Embroidery</th><th>Stock</th><th>Finance</th><th>Actions</th></tr>
         </thead>
         <tbody>
           {(data?.users ?? []).map((u) => (
@@ -126,6 +130,10 @@ export default function UsersAdmin() {
               <td>
                 <input type="checkbox" checked={u.canViewStaff} title="Staff tab access"
                   onChange={(e) => patch.mutate({ id: u.id, data: { canViewStaff: e.target.checked } })} />
+              </td>
+              <td>
+                <input type="checkbox" checked={u.canViewEmbroidery} title="Embroidery tab access"
+                  onChange={(e) => patch.mutate({ id: u.id, data: { canViewEmbroidery: e.target.checked } })} />
               </td>
               <td>
                 <input type="checkbox" checked={u.canManageStock} title="Stock management: receive, transfer, reverse, products"

@@ -42,7 +42,7 @@
 .emb-dim { color: #8b949e; }
 .emb-empty { text-align: center; color: #6e7781; padding: 28px 12px !important; }
 
-.emb-pill { appearance: none; -webkit-appearance: none; width: 104px; height: 22px; border: 1px solid #d0d7de; border-radius: 999px; padding: 0 10px; font-size: 11.5px; font-weight: 600; cursor: pointer; background: #fff; color: #8b949e; text-transform: uppercase; display: inline-flex; align-items: center; }
+.emb-pill { appearance: none; -webkit-appearance: none; width: auto; min-width: 104px; height: 22px; border: 1px solid #d0d7de; border-radius: 999px; padding: 0 10px; font-size: 11.5px; font-weight: 600; cursor: pointer; background: #fff; color: #8b949e; text-transform: uppercase; display: inline-flex; align-items: center; }
 .emb-pill.set { color: #1f2328; }
 select.emb-pill option { background: #fff; color: #1f2328; }
 .emb-tag { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 10px; border-radius: 999px; }

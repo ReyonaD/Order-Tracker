@@ -31,6 +31,8 @@ model User {
   canViewSheets  Boolean  @default(false)
   // Grants access to the Staff tab (per-designer uploads + per-operator prints).
   canViewStaff   Boolean  @default(false)
+  // Grants access to the Embroidery tab (embroidery orders from ShipStation).
+  canViewEmbroidery Boolean @default(false)
   // Grants access to the Finance tab (per-store monthly income statements).
   canViewFinance Boolean  @default(false)
   // Stock Inventory is visible to everyone; this grants receiving, transfers,

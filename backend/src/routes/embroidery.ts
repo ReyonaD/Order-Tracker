@@ -4,12 +4,12 @@ import { Request, Response, Router } from "express";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../db";
-import { requireAuth } from "../middleware/auth";
+import { requireAuth, requireEmbroidery } from "../middleware/auth";
 import { fetchByOrderNumber, ssConfigured, syncShipStation, syncStatus } from "../services/embroiderySync";
 import { dbxConfigured, dbxStatus, syncDropbox, temporaryLink } from "../services/embroideryDropbox";
 
 export const embroideryRouter = Router();
-embroideryRouter.use(requireAuth);
+embroideryRouter.use(requireAuth, requireEmbroidery);
 
 // Express 4 doesn't catch async errors: answer 500 instead of leaving the request hanging
 type H = (req: Request, res: Response) => Promise<void>;

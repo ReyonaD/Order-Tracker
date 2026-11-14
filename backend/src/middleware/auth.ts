@@ -38,6 +38,11 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
   try {
     const payload = jwt.verify(token, env.jwtSecret) as AuthUser;
     req.user = { id: payload.id, email: payload.email, role: payload.role };
+    // the EMBROIDERY role reaches only the Embroidery API (and its own login session)
+    if (payload.role === "EMBROIDERY" && !["/embroidery", "/auth"].includes(req.baseUrl)) {
+      res.status(403).json({ status: "error", message: "Not available for the Embroidery role" });
+      return;
+    }
     next();
   } catch {
     res.status(401).json({ status: "error", message: "Invalid or expired token" });
@@ -103,6 +108,21 @@ export async function requireStaff(req: Request, res: Response, next: NextFuncti
   const u = await prisma.user.findUnique({ where: { id: req.user.id }, select: { canViewStaff: true } });
   if (!u?.canViewStaff) {
     res.status(403).json({ status: "error", message: "Staff access required" });
+    return;
+  }
+  next();
+}
+
+/** Require Embroidery access (admins always have it; others need the canViewEmbroidery flag). */
+export async function requireEmbroidery(req: Request, res: Response, next: NextFunction): Promise<void> {
+  if (!req.user) {
+    res.status(401).json({ status: "error", message: "Not authenticated" });
+    return;
+  }
+  if (req.user.role === "ADMIN" || req.user.role === "EMBROIDERY") { next(); return; }
+  const u = await prisma.user.findUnique({ where: { id: req.user.id }, select: { canViewEmbroidery: true } });
+  if (!u?.canViewEmbroidery) {
+    res.status(403).json({ status: "error", message: "Embroidery access required" });
     return;
   }
   next();

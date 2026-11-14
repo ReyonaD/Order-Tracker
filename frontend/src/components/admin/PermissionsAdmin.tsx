@@ -5,7 +5,7 @@ import { PermissionsMatrix } from "../../types";
 import { COLUMN_META, PERMISSION_COLUMNS } from "../../columns";
 
 // Built-in roles can't be deleted (mirrors the backend BUILTIN_ROLES).
-const BUILTIN = new Set(["DESIGNER", "MACHINIST", "CUSTOMER_SERVICE", "VIEWER"]);
+const BUILTIN = new Set(["DESIGNER", "MACHINIST", "CUSTOMER_SERVICE", "VIEWER", "EMBROIDERY"]);
 const EDITABLE = new Set(COLUMN_META.filter((c) => c.editable).map((c) => c.key));
 const LABEL: Record<string, string> = Object.fromEntries(COLUMN_META.map((c) => [c.key, c.label]));
 

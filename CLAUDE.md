@@ -231,7 +231,11 @@ printed. See memory note `delivery-feature` / the plan file.
   the portable source of truth — prefer updating it.
 
 ## Embroidery (sidebar 🧵, 2026-11-14)
-Replaces the hand-filled Google Sheet "EMB-EMBROIDERY ORDERS". Visible to every logged-in user.
+Replaces the hand-filled Google Sheet "EMB-EMBROIDERY ORDERS".
+- **Access:** ADMIN, users with the `canViewEmbroidery` flag (Admin → Users, like Reports/Sheets/Staff), and the built-in
+  **EMBROIDERY role**, which sees ONLY this page: `App.tsx` renders `EmbroideryOnlyPage` for it and `requireAuth` answers
+  403 to that role on every API except `/embroidery` and `/auth` (role comes from the JWT, so a role change applies at
+  the next login).
 - **Orders from ShipStation** (API v1, Basic auth `SS_API_KEY`/`SS_API_SECRET`; all ~50 Etsy shops are ShipStation
   stores). `services/embroiderySync.ts` polls `/orders?modifyDateStart=` every 3 min (cursor `EmbSyncState.ss_modify_since`,
   10 min overlap; first run = last 30 days). An order is kept when any item name matches `/embroider/i` (SKU "EMB" alone

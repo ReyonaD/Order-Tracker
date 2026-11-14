@@ -3,7 +3,9 @@ import { prisma } from "../db";
 // Role-based column permissions. ADMIN is always full access and is NOT in the matrix.
 // These are the built-in roles; admins can add custom roles on top (stored in the
 // same matrix). Built-in roles can't be deleted.
-export const BUILTIN_ROLES = ["DESIGNER", "MACHINIST", "CUSTOMER_SERVICE", "VIEWER"] as const;
+export const BUILTIN_ROLES = ["DESIGNER", "MACHINIST", "CUSTOMER_SERVICE", "VIEWER", "EMBROIDERY"] as const;
+// The embroidery team: sees only the Embroidery page (enforced in requireAuth).
+export const EMBROIDERY_ROLE = "EMBROIDERY";
 
 // A valid role name: UPPER_SNAKE, starts with a letter, 2-30 chars. "ADMIN" is reserved.
 export const ROLE_NAME_RE = /^[A-Z][A-Z0-9_]{1,29}$/;
@@ -53,6 +55,8 @@ export const DEFAULT_PERMISSIONS: Record<string, RolePerms> = {
   // Customer service handles problem orders / customer comms.
   CUSTOMER_SERVICE: build(["upload", "image", "note", "urgent"]),
   VIEWER: build([]),
+  // never sees the orders table (only the Embroidery page)
+  EMBROIDERY: Object.fromEntries(PERMISSION_COLUMNS.map((k) => [k, { view: false, edit: false }])),
 };
 
 // Merge stored config over defaults, enforcing the invariants:

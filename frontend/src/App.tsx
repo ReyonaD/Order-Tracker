@@ -3,12 +3,15 @@ import { useAuth } from "./auth/AuthContext";
 import Login from "./pages/Login";
 import OrdersPage from "./pages/OrdersPage";
 import AdminPage from "./pages/AdminPage";
+import EmbroideryOnlyPage from "./pages/EmbroideryOnlyPage";
 
 export default function App() {
   const { user, loading } = useAuth();
 
   if (loading) return <div className="center-screen">Loading…</div>;
   if (!user) return <Login />;
+  // the embroidery team sees nothing but the Embroidery page
+  if (user.role === "EMBROIDERY") return <EmbroideryOnlyPage />;
 
   return (
     <Routes>
