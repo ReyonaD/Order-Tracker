@@ -19,27 +19,27 @@ datasource db {
 // CUSTOMER_SERVICE, VIEWER.
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  name         String
-  passwordHash String
-  role         String   @default("VIEWER")
-  active       Boolean  @default(true)
+  id             String   @id @default(cuid())
+  email          String   @unique
+  name           String
+  passwordHash   String
+  role           String   @default("VIEWER")
+  active         Boolean  @default(true)
   // Grants access to the Reports tab (detailed analytics + PDF export).
-  canViewReports Boolean @default(false)
+  canViewReports Boolean  @default(false)
   // Grants access to the Sheets tab (monthly account tracking).
-  canViewSheets  Boolean @default(false)
+  canViewSheets  Boolean  @default(false)
   // Grants access to the Staff tab (per-designer uploads + per-operator prints).
-  canViewStaff   Boolean @default(false)
+  canViewStaff   Boolean  @default(false)
   // Grants access to the Finance tab (per-store monthly income statements).
-  canViewFinance Boolean @default(false)
+  canViewFinance Boolean  @default(false)
   // Stock Inventory is visible to everyone; this grants receiving, transfers,
   // reversals and the product list (ADMIN always has it).
-  canManageStock Boolean @default(false)
+  canManageStock Boolean  @default(false)
   // Per-user UI preferences: current column layout + saved presets (JSON).
-  preferences  Json?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  preferences    Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }
 
 // ---------------------------------------------------------------------------
@@ -52,7 +52,7 @@ model FinanceStatement {
   id        String   @id @default(cuid())
   storeCode String
   year      Int
-  month     Int      // 1-12
+  month     Int // 1-12
   data      Json     @default("{}")
   updatedBy String?
   createdAt DateTime @default(now())
@@ -69,7 +69,7 @@ model FinanceStatement {
 // ---------------------------------------------------------------------------
 model DropdownOption {
   id       String  @id @default(cuid())
-  category String  // "designer" | "machinist" | "machine" | "uploadStatus" | "printStatus"
+  category String // "designer" | "machinist" | "machine" | "uploadStatus" | "printStatus"
   value    String
   sort     Int     @default(0)
   active   Boolean @default(true)
@@ -82,25 +82,25 @@ model DropdownOption {
 // Stores — data-driven replacement for the giant if/else blocks in Apps Script
 // ---------------------------------------------------------------------------
 model Store {
-  id                 String  @id @default(cuid())
-  code               String  @unique // e.g. "PICASSO"
-  name               String
-  color              String  @default("#FFFFFF") // row background color
-  shopifyIdentifier  String  // slug used in admin.shopify.com/store/<id>/orders/<n>
-  timezone           String  @default("America/Chicago")
+  id                String @id @default(cuid())
+  code              String @unique // e.g. "PICASSO"
+  name              String
+  color             String @default("#FFFFFF") // row background color
+  shopifyIdentifier String // slug used in admin.shopify.com/store/<id>/orders/<n>
+  timezone          String @default("America/Chicago")
 
   // Deadline cutoff hours (0-23). Orders placed after the cutoff roll to next day.
-  pickupCutoffHour   Int     @default(14)
-  shippingCutoffHour Int     @default(14)
+  pickupCutoffHour   Int @default(14)
+  shippingCutoffHour Int @default(14)
 
   // Shopify webhook HMAC secret (per store). Nullable until configured.
-  webhookSecret      String?
+  webhookSecret String?
 
-  active             Boolean @default(true)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  orders             Order[]
+  orders Order[]
 }
 
 // ---------------------------------------------------------------------------
@@ -120,7 +120,7 @@ model WebhookEvent {
   id          String    @id @default(cuid())
   storeCode   String
   topic       String
-  kind        String    // creation | fulfillment | cancellation
+  kind        String // creation | fulfillment | cancellation
   orderName   String?
   payload     Json
   status      String    @default("received") // received | processed | unmatched | error
@@ -143,64 +143,64 @@ enum OrderStatus {
 }
 
 model Order {
-  id             String      @id @default(cuid())
+  id String @id @default(cuid())
 
   // --- Shopify identity (duplicate protection at the DB level) ---
-  shopifyOrderId String      @unique // Shopify numeric order id as string
-  orderName      String      // "#1234"
+  shopifyOrderId String @unique // Shopify numeric order id as string
+  orderName      String // "#1234"
 
   // --- Store / shipping ---
-  store          Store       @relation(fields: [storeId], references: [id])
-  storeId        String
-  storeCode      String      // denormalized for fast display/filtering
-  shippingMethod        String  // raw shipping title from Shopify
-  displayShippingMethod String  // computed label (Pick-up variants etc.)
-  isPickup       Boolean     @default(false)
+  store                 Store   @relation(fields: [storeId], references: [id])
+  storeId               String
+  storeCode             String // denormalized for fast display/filtering
+  shippingMethod        String // raw shipping title from Shopify
+  displayShippingMethod String // computed label (Pick-up variants etc.)
+  isPickup              Boolean @default(false)
 
   // --- Timing ---
-  orderDate      DateTime    // Shopify created_at
-  deadlineAt     DateTime    // real timestamp; frontend renders "Today/Tomorrow X PM"
-  deadlineHour   Int         @default(17) // 17 = "5 PM", 19 = "7 PM" — for the deadline views
+  orderDate    DateTime // Shopify created_at
+  deadlineAt   DateTime // real timestamp; frontend renders "Today/Tomorrow X PM"
+  deadlineHour Int      @default(17) // 17 = "5 PM", 19 = "7 PM" — for the deadline views
 
   // --- Flags ---
-  urgent         Boolean     @default(false) // manual "urgent" flag
-  rush           Boolean     @default(false) // "+++" file name on the floor: above urgent, printed first
+  urgent Boolean @default(false) // manual "urgent" flag
+  rush   Boolean @default(false) // "+++" file name on the floor: above urgent, printed first
 
   // --- Items ---
-  itemTypes      String[]    // ["T-shirt","Gang Sheet"] etc.
-  lineItems      Json?       // raw Shopify line_items for reference
+  itemTypes        String[] // ["T-shirt","Gang Sheet"] etc.
+  lineItems        Json? // raw Shopify line_items for reference
   // Precomputed per-category sheet values {categoryKey: value} (inches for
   // inch-kind categories, units for count-kind) — lets Sheets sum stored numbers
   // instead of re-parsing/re-classifying line items on every open.
   categoryMeasures Json?
 
   // --- Links / tracking ---
-  orderUrl       String      // N: Shopify admin order url ("View Order")
-  trackingNumber String?     // O: tracking number (shipping orders)
-  trackingUrl    String?     // O: carrier tracking url
+  orderUrl       String // N: Shopify admin order url ("View Order")
+  trackingNumber String? // O: tracking number (shipping orders)
+  trackingUrl    String? // O: carrier tracking url
 
   // --- Money ---
-  totalPrice     Float?      // Shopify order total (total_price)
+  totalPrice Float? // Shopify order total (total_price)
 
   // --- Status ---
-  status         OrderStatus @default(NEW) // P: from Shopify webhook (Fulfilled/Cancelled)
+  status OrderStatus @default(NEW) // P: from Shopify webhook (Fulfilled/Cancelled)
 
   // --- Workflow columns (sheet columns G–M) ---
-  designerName   String?     // G: designer who uploaded the order file (dropdown)
-  uploadStatus   String?     // H: Uploaded / Problem (dropdown)
+  designerName     String? // G: designer who uploaded the order file (dropdown)
+  uploadStatus     String? // H: Uploaded / Problem (dropdown)
   problemEmailSent Boolean   @default(false) // H: "email sent?" — only relevant when uploadStatus = Problem
-  fileLink       String?     // I: link to the uploaded order file (Dropbox)
-  printStatus    String?     // J: "printed" / empty — set by machine operators (dropdown)
-  designerNote   String?     // K: free-text note from the designer
-  machinistName  String?     // L: operator who printed the file (dropdown)
-  machineName    String?     // M: which machine the file was printed on (dropdown)
-  printStatusAt  DateTime?   // when printStatus last changed (floor report or manual edit)
+  fileLink         String? // I: link to the uploaded order file (Dropbox)
+  printStatus      String? // J: "printed" / empty — set by machine operators (dropdown)
+  designerNote     String? // K: free-text note from the designer
+  machinistName    String? // L: operator who printed the file (dropdown)
+  machineName      String? // M: which machine the file was printed on (dropdown)
+  printStatusAt    DateTime? // when printStatus last changed (floor report or manual edit)
 
-  image          OrderImage?
-  sheets         Sheet[]     // per-sheet print progress reported by DTF Monitor
+  image  OrderImage?
+  sheets Sheet[] // per-sheet print progress reported by DTF Monitor
 
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([storeCode])
   @@index([status])
@@ -213,42 +213,42 @@ model Order {
 // rows ("RIP'd 1/5" → "Printed 3/5" → "Printed"). A multi-sheet order can therefore
 // be split across machines/operators.
 model Sheet {
-  id           String    @id @default(cuid())
-  order        Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  orderId      String
-  part         Int       // 1-based part number
-  total        Int       @default(1)
-  copies       Int       @default(1) // "(2x)" → two physical sheets of this part
-  status       String    // "DOWNLOADED" | "RIPPED" | "PRINTED"
-  fileName     String?
-  machine      String?
-  operator     String?
-  downloadedAt DateTime? // agent pulled the file into its hot folder
-  rippedAt     DateTime?
-  printedAt    DateTime?
-  printedCount Int       @default(0) // copies that went through the oven
+  id                  String    @id @default(cuid())
+  order               Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId             String
+  part                Int // 1-based part number
+  total               Int       @default(1)
+  copies              Int       @default(1) // "(2x)" → two physical sheets of this part
+  status              String // "DOWNLOADED" | "RIPPED" | "PRINTED"
+  fileName            String?
+  machine             String?
+  operator            String?
+  downloadedAt        DateTime? // agent pulled the file into its hot folder
+  rippedAt            DateTime?
+  printedAt           DateTime?
+  printedCount        Int       @default(0) // copies that went through the oven
   // Reprints never overwrite the original print above; they are counted here and
   // logged one by one in PrintEvent.
-  reprints          Int       @default(0)
-  lastReprintAt     DateTime?
-  lastReprintMachine String?
+  reprints            Int       @default(0)
+  lastReprintAt       DateTime?
+  lastReprintMachine  String?
   lastReprintOperator String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
   @@unique([orderId, part])
 }
 
 // Every confirmed print of a sheet (first print or reprint), as reported by the floor.
 model PrintEvent {
-  id        String   @id @default(cuid())
-  orderId   String
-  part      Int
-  kind      String   // "downloaded" | "ripped" | "print" | "reprint" (the first two since 2026-10-02) | "reprint_downloaded" | "reprint_ripped" (2026-11-13: a reprint of a printed sheet)
-  machine   String?
-  operator  String?
-  fileName  String?
-  at        DateTime @default(now())
+  id       String   @id @default(cuid())
+  orderId  String
+  part     Int
+  kind     String // "downloaded" | "ripped" | "print" | "reprint" (the first two since 2026-10-02) | "reprint_downloaded" | "reprint_ripped" (2026-11-13: a reprint of a printed sheet)
+  machine  String?
+  operator String?
+  fileName String?
+  at       DateTime @default(now())
 
   @@index([orderId])
 }
@@ -256,13 +256,13 @@ model PrintEvent {
 // One uploaded image per order (PNG/JPEG). Bytes live in their own table so the
 // orders list never loads the blob — only metadata is fetched with orders.
 model OrderImage {
-  id         String   @id @default(cuid())
-  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  orderId    String   @unique
-  filename   String
-  mimeType   String
-  data       Bytes
-  updatedAt  DateTime @updatedAt
+  id        String   @id @default(cuid())
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId   String   @unique
+  filename  String
+  mimeType  String
+  data      Bytes
+  updatedAt DateTime @updatedAt
 }
 
 // Monthly account tracking: per store, per month, per
@@ -271,14 +271,14 @@ model OrderImage {
 // (cheetahPct) and an optional manual override of the total.
 model SheetEntry {
   id            String   @id @default(cuid())
-  month         String   // "YYYY-MM"
+  month         String // "YYYY-MM"
   storeCode     String
-  type          String   // "DTF" | "UV" | "Sublimation"
-  cheetahPct    Float?   // deprecated: migrated into splitPct.Cheetah
+  type          String // "DTF" | "UV" | "Sublimation"
+  cheetahPct    Float? // deprecated: migrated into splitPct.Cheetah
   // warehouse -> percent printed there (non-Promo warehouses; Promo = remainder).
   // e.g. { "Cheetah": 94, "Houston": 3, "Mesquite": 2 }
   splitPct      Json?
-  totalOverride Float?   // manual override: REPLACES the auto total
+  totalOverride Float? // manual override: REPLACES the auto total
   // additive baseline ADDED to the live auto total (e.g. pre-webhook sales for
   // the transition month, so later orders still accumulate on top).
   baseline      Float?
@@ -295,34 +295,34 @@ model SheetEntry {
 // through services/stock.ts: one row in StockLevel, one StockMovement for the trail.
 // ---------------------------------------------------------------------------
 model StockWarehouse {
-  id        Int       @id @default(autoincrement())
-  name      String    @unique
-  active    Boolean   @default(true)   // false = no longer in DTF Monitor; history is kept
-  machines  Json?                      // [{name, type}] from DTF Monitor
+  id        Int             @id @default(autoincrement())
+  name      String          @unique
+  active    Boolean         @default(true) // false = no longer in DTF Monitor; history is kept
+  machines  Json? // [{name, type}] from DTF Monitor
   syncedAt  DateTime?
   levels    StockLevel[]
   movements StockMovement[]
 }
 
 model StockProduct {
-  id        Int      @id @default(autoincrement())
-  name      String
-  category  String   // DTF | UV
-  unit      String   // bottle | roll | pcs | kg | liter | meter | box
-  minStock  Decimal  @default(3) @db.Decimal(10, 2)
-  active    Boolean  @default(true)
-  deletedAt DateTime?   // removed from the lists; its movements stay for reports
-  shopifyKey String?  @unique  // "STORE|product title|variant title" (lowercased): a sale in that Shopify store takes it out
-  levels    StockLevel[]
-  movements StockMovement[]
+  id         Int             @id @default(autoincrement())
+  name       String
+  category   String // DTF | UV
+  unit       String // bottle | roll | pcs | kg | liter | meter | box
+  minStock   Decimal         @default(3) @db.Decimal(10, 2)
+  active     Boolean         @default(true)
+  deletedAt  DateTime? // removed from the lists; its movements stay for reports
+  shopifyKey String?         @unique // "STORE|product title|variant title" (lowercased): a sale in that Shopify store takes it out
+  levels     StockLevel[]
+  movements  StockMovement[]
 }
 
 model StockLevel {
   warehouseId Int
   productId   Int
-  quantity    Decimal @default(0) @db.Decimal(10, 2)
-  minStock    Decimal? @db.Decimal(10, 2)   // this warehouse's own threshold; null = the product's
-  tracked     Boolean  @default(true)        // false = not kept here: never low/out, hidden while empty
+  quantity    Decimal        @default(0) @db.Decimal(10, 2)
+  minStock    Decimal?       @db.Decimal(10, 2) // this warehouse's own threshold; null = the product's
+  tracked     Boolean        @default(true) // false = not kept here: never low/out, hidden while empty
   warehouse   StockWarehouse @relation(fields: [warehouseId], references: [id])
   product     StockProduct   @relation(fields: [productId], references: [id])
 
@@ -330,21 +330,21 @@ model StockLevel {
 }
 
 model StockMovement {
-  id          Int       @id @default(autoincrement())
+  id          Int            @id @default(autoincrement())
   warehouseId Int
   productId   Int
-  type        String    // in | out
-  kind        String    @default("stock")  // stock | consumption | transfer | reversal
-  quantity    Decimal   @db.Decimal(10, 2)
-  before      Decimal   @db.Decimal(10, 2)
-  after       Decimal   @db.Decimal(10, 2)
-  note        String    @default("")
-  actor       String    @default("")       // OT user name, or the agent's operator
-  machine     String    @default("")       // set when it came from a printer PC's agent
-  source      String    @default("web")    // web | agent
+  type        String // in | out
+  kind        String         @default("stock") // stock | consumption | transfer | reversal
+  quantity    Decimal        @db.Decimal(10, 2)
+  before      Decimal        @db.Decimal(10, 2)
+  after       Decimal        @db.Decimal(10, 2)
+  note        String         @default("")
+  actor       String         @default("") // OT user name, or the agent's operator
+  machine     String         @default("") // set when it came from a printer PC's agent
+  source      String         @default("web") // web | agent
   batchKey    String?
   reversedAt  DateTime?
-  createdAt   DateTime  @default(now())
+  createdAt   DateTime       @default(now())
   warehouse   StockWarehouse @relation(fields: [warehouseId], references: [id])
   product     StockProduct   @relation(fields: [productId], references: [id])
 
@@ -365,7 +365,7 @@ model StockNotification {
   id        Int       @id @default(autoincrement())
   eventKey  String    @unique
   message   String
-  status    String    @default("pending")  // pending | sent | failed
+  status    String    @default("pending") // pending | sent | failed
   attempts  Int       @default(0)
   lastError String?
   createdAt DateTime  @default(now())
@@ -399,15 +399,15 @@ model PurchaseInvoice {
   status        String         @default("processing") // processing | review | approved | failed
   supplier      String?
   invoiceNumber String?
-  invoiceDate   String?        // YYYY-MM-DD as printed on the invoice
-  currency      String?        // ISO code, e.g. USD
+  invoiceDate   String? // YYYY-MM-DD as printed on the invoice
+  currency      String? // ISO code, e.g. USD
   subtotal      Float?
   tax           Float?
   shipping      Float?
   discount      Float?
   total         Float?
-  checkNote     String?        // why the read needs a closer look (totals don't add up…)
-  aiModel       String?        // model that produced the current read
+  checkNote     String? // why the read needs a closer look (totals don't add up…)
+  aiModel       String? // model that produced the current read
   error         String?
   uploadedBy    String?
   approvedBy    String?
@@ -440,4 +440,76 @@ model PurchaseItem {
 
   @@index([invoiceId])
   @@index([family])
+}
+
+// ---------------------------------------------------------------------------
+// Embroidery — orders whose items say "Embroidered/Embroidery", pulled from
+// ShipStation (all Etsy shops). Replaces the hand-filled EMB-EMBROIDERY ORDERS sheet.
+// ShipStation fills date/shop/product/shipped; the Dropbox design folder fills the
+// design link (file name carries the order number); a packing-slip barcode scan sets
+// PRINTED. Customer service / order status / design status / logo-text / prepared by
+// stay manual (values from EmbOption).
+// ---------------------------------------------------------------------------
+model EmbOrder {
+  id              String    @id @default(cuid())
+  ssOrderId       Int       @unique
+  orderNumber     String
+  storeId         Int?
+  shopName        String?
+  orderDate       DateTime
+  shipByDate      DateTime?
+  ssStatus        String // awaiting_shipment, shipped, cancelled, on_hold, awaiting_payment
+  shippedAt       DateTime?
+  customerName    String?
+  products        String // e.g. "SWEATSHIRT", "Towel, BAG"
+  items           Json // [{name, sku, quantity, imageUrl, options:[{name,value}]}]
+  ssModifiedAt    DateTime?
+  customerService String?
+  orderStatus     String?
+  designStatus    String?
+  logoOrText      String?
+  preparedBy      String?
+  note            String?
+  printStatus     String? // PRINTED, CANCELED or empty
+  printedAt       DateTime?
+  printedBy       String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([orderNumber])
+  @@index([orderDate])
+}
+
+// A file in the Dropbox design folder; orderNumber is read from its name, so a design
+// uploaded before the order is synced still links up later.
+model EmbDesignFile {
+  id          String    @id @default(cuid())
+  path        String    @unique // lower-case Dropbox path
+  pathDisplay String
+  name        String
+  orderNumber String?
+  size        Int?
+  uploadedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([orderNumber])
+}
+
+// The choices of the manual dropdown columns (customerService, orderStatus,
+// designStatus, logoOrText, preparedBy, printStatus) with their pill colors.
+model EmbOption {
+  id       String @id @default(cuid())
+  column   String
+  value    String
+  color    String @default("#e5e7eb")
+  position Int    @default(0)
+
+  @@unique([column, value])
+}
+
+// Sync cursors (ShipStation last modifyDate, Dropbox list_folder cursor).
+model EmbSyncState {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
 }

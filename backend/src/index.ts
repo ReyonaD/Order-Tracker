@@ -22,6 +22,7 @@ import { stockRouter, stockIntegrationRouter } from "./routes/stock";
 import { startStockJobs } from "./services/stockJobs";
 import { purchaseRouter } from "./routes/purchases";
 import { resumePendingReads } from "./services/purchaseReader";
+import { embroideryRouter, startEmbroideryJobs } from "./routes/embroidery";
 
 const app = express();
 
@@ -50,6 +51,7 @@ app.use("/sheets", sheetRouter);
 app.use("/staff", staffRouter);
 app.use("/finance", financeRouter);
 app.use("/purchases", purchaseRouter);
+app.use("/embroidery", embroideryRouter);
 app.use("/chase", chaseRouter);
 app.use("/stock", stockRouter);
 
@@ -66,6 +68,7 @@ const server = app.listen(env.port, () => {
   console.log(`Order Tracker API listening on port ${env.port}`);
   startStockJobs();
   resumePendingReads().catch((e) => console.error("Purchases resume:", e));
+  startEmbroideryJobs();
 });
 
 // Graceful shutdown

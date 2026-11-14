@@ -31,6 +31,12 @@ export default function Sidebar({ activeView, onSelect, canReports, canSheets, c
               🖨 Floor queue
             </button>
             <button
+              className={`sidebar-item sidebar-reports ${activeView === "embroidery" ? "active" : ""}`}
+              onClick={() => onSelect("embroidery")}
+            >
+              🧵 Embroidery
+            </button>
+            <button
               className={`sidebar-item sidebar-reports ${activeView === "stock" ? "active" : ""}`}
               onClick={() => onSelect("stock")}
             >

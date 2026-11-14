@@ -229,3 +229,30 @@ printed. See memory note `delivery-feature` / the plan file.
   strings in **English** (the app is English even though we chat in Turkish).
 - Deeper point-in-time notes live in `~/.claude/.../memory/` (local only). This CLAUDE.md is
   the portable source of truth — prefer updating it.
+
+## Embroidery (sidebar 🧵, 2026-11-14)
+Replaces the hand-filled Google Sheet "EMB-EMBROIDERY ORDERS". Visible to every logged-in user.
+- **Orders from ShipStation** (API v1, Basic auth `SS_API_KEY`/`SS_API_SECRET`; all ~50 Etsy shops are ShipStation
+  stores). `services/embroiderySync.ts` polls `/orders?modifyDateStart=` every 3 min (cursor `EmbSyncState.ss_modify_since`,
+  10 min overlap; first run = last 30 days). An order is kept when any item name matches `/embroider/i` (SKU "EMB" alone
+  is not used; "Embarrassed" must not match). Date = `paymentDate` (Etsy purchase; ShipStation `orderDate` can be a later
+  re-import). ShipStation dates are Pacific, no offset. Product = `productType(name)` (SWEATSHIRT / Towel / BAG / SHIRT-POLO …).
+  Shipped/cancelled follow ShipStation; a cancelled order gets orderStatus CANCELED and, unless printed,
+  printStatus CANCELED (only when empty — hand-picked values stay). No webhook (polling is enough;
+  ShipStation webhooks only send a resource URL anyway). Rate limit 40 req/min — `ssGet` waits on 429.
+- **Designs from Dropbox** (`services/embroideryDropbox.ts`): `EMB_DROPBOX_PATH` listed recursively, then
+  `list_folder/continue` every minute (cursor `dbx_cursor`). Same team-namespace auth as DTF Monitor
+  (`DROPBOX_APP_KEY/SECRET/REFRESH_TOKEN`, `DROPBOX_ROOT_NS`). Order number from the file name (`orderNumberIn`: 10-digit
+  Etsy receipt or Amazon 3-7-7) → `EmbDesignFile.orderNumber`; joined by number, so a design uploaded before the order syncs
+  still links. Link = `/embroidery/design/:id?token=` → 302 to a Dropbox temporary link.
+- **PRINTED by barcode**: "Scan printed" tab keeps focus in one box (USB scanner types + Enter) → `POST /embroidery/scan`
+  (order number, or ShipStation orderId); unknown numbers are looked up in ShipStation once. Records printedBy/printedAt.
+  `ssOrderId` is int4 — never put a 10-digit order number into it (it overflowed once and hung the request).
+- Manual columns (customer service, order status, design status, logo/text, prepared by, print status) use `EmbOption`
+  lists with pill colors, edited from "Edit lists". Prepared By stays manual (the designer).
+- **Views:** the floor buys every label in the morning, then embroiders. ShipStation "shipped" = label created (or marked
+  shipped), so the column is called "Label created" and **To do = label created + not PRINTED/CANCELED**, labels from
+  `EMB_TODO_FROM` (YYYY-MM-DD, default 2026-11-01; the November sheet was imported, older labels were handled on paper) on. Other views:
+  No design yet, No label yet, Printed, Label created, Cancelled, All (`VIEW_WHERE` in routes/embroidery.ts).
+- Design status **READY DESIGN** = made from a ready-made design (no Dropbox file); such orders are left out of
+  the "No design yet" view. Many towels/bags are like this.
