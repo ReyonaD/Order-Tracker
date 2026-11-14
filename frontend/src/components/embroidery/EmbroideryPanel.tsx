@@ -117,6 +117,8 @@ function OrdersTab({ meta }: { meta?: Meta }) {
       api.patch<{ order: EmbOrder }>(`/embroidery/orders/${b.id}`, { field: b.field, value: b.value }),
     onSuccess: (r) => {
       qc.setQueryData(key, (d: { orders: EmbOrder[] } | undefined) => d && { ...d, orders: d.orders.map((o) => (o.id === r.order.id ? r.order : o)) });
+      // a change can move the order out of this list (CANCELED, PRINTED, READY DESIGN)
+      qc.invalidateQueries({ queryKey: ["embOrders"] });
       qc.invalidateQueries({ queryKey: ["embMeta"] });
     },
   });

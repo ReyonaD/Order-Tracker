@@ -21,6 +21,7 @@ const safe = (h: H) => (req: Request, res: Response) => h(req, res).catch((e) =>
 export const EMB_COLUMNS = ["customerService", "orderStatus", "designStatus", "logoOrText", "preparedBy", "printStatus"] as const;
 const PAGE = 200;
 const READY_DESIGN = "READY DESIGN";
+const CANCELED = "CANCELED";
 
 const userName = async (id: string) => (await prisma.user.findUnique({ where: { id }, select: { name: true } }))?.name ?? null;
 
@@ -45,7 +46,7 @@ const VIEW_WHERE: Record<string, Prisma.EmbOrderWhereInput> = {
     { OR: [{ designStatus: null }, { designStatus: { not: READY_DESIGN } }] }] },
   printed: { printStatus: "PRINTED" },
   labelled: { ssStatus: "shipped" },
-  cancelled: { OR: [{ ssStatus: "cancelled" }, { printStatus: "CANCELED" }] },
+  cancelled: { OR: [{ ssStatus: "cancelled" }, { printStatus: "CANCELED" }, { orderStatus: "CANCELED" }] },
   all: {},
 };
 const OLDEST_FIRST = new Set(["todo", "nolabel", "nodesign"]);
@@ -112,12 +113,23 @@ embroideryRouter.patch("/orders/:id", safe(async (req, res) => {
   const p = Patch.safeParse(req.body);
   if (!p.success) { res.status(400).json({ status: "error", message: "Invalid field" }); return; }
   const value = p.data.value?.trim() || null;
+  const prev = await prisma.embOrder.findUnique({ where: { id: req.params.id }, select: { orderStatus: true, printStatus: true } });
+  if (!prev) { res.status(404).json({ status: "error", message: "Order not found" }); return; }
   const data: Prisma.EmbOrderUpdateInput = { [p.data.field]: value };
   if (p.data.field === "printStatus") {
     Object.assign(data, value === "PRINTED" ? { printedAt: new Date(), printedBy: await userName(req.user!.id) } : { printedAt: null, printedBy: null });
   }
-  const order = await prisma.embOrder.update({ where: { id: req.params.id }, data }).catch(() => null);
-  if (!order) { res.status(404).json({ status: "error", message: "Order not found" }); return; }
+  // CANCELED is one state: set (or cleared) in order status or print status, the other follows
+  const twin = p.data.field === "orderStatus" ? "printStatus" : p.data.field === "printStatus" ? "orderStatus" : null;
+  if (twin) {
+    if (value === CANCELED) {
+      data[twin] = CANCELED;
+      if (twin === "printStatus") Object.assign(data, { printedAt: null, printedBy: null });
+    } else if (prev[p.data.field as "orderStatus" | "printStatus"] === CANCELED && prev[twin] === CANCELED) {
+      data[twin] = null;
+    }
+  }
+  const order = await prisma.embOrder.update({ where: { id: req.params.id }, data });
   res.json({ status: "success", order: (await withDesigns([order]))[0] });
 }));
 

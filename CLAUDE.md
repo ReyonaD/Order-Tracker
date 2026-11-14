@@ -254,5 +254,7 @@ Replaces the hand-filled Google Sheet "EMB-EMBROIDERY ORDERS". Visible to every 
   shipped), so the column is called "Label created" and **To do = label created + not PRINTED/CANCELED**, labels from
   `EMB_TODO_FROM` (YYYY-MM-DD, default 2026-11-01; the November sheet was imported, older labels were handled on paper) on. Other views:
   No design yet, No label yet, Printed, Label created, Cancelled, All (`VIEW_WHERE` in routes/embroidery.ts).
+- **CANCELED is one state**: picking (or clearing) CANCELED in order status or print status sets (clears) the other
+  (PATCH handler); the Cancelled view also matches orderStatus CANCELED.
 - Design status **READY DESIGN** = made from a ready-made design (no Dropbox file); such orders are left out of
   the "No design yet" view. Many towels/bags are like this.
