@@ -7,7 +7,11 @@ import { prisma } from "../db";
 
 const SS_BASE = "https://ssapi.shipstation.com";
 const SS_TZ = "America/Los_Angeles";
+// an item is embroidery when its listing title says so, or its SKU carries the EMB tag
+// (the same listing can have an "Applique…" title in one shop and "…Embroidered…" in another)
 const EMB_RE = /embroider/i;
+const EMB_SKU_RE = /\bEMB\b/;
+const isEmb = (i: SsItem) => EMB_RE.test(i.name ?? "") || EMB_SKU_RE.test(i.sku ?? "");
 const CURSOR_KEY = "ss_modify_since";
 const BACKFILL_DAYS = 30;
 const OVERLAP_MIN = 10;
@@ -71,7 +75,7 @@ async function shopName(storeId: number | null | undefined) {
 
 /** Insert/update one ShipStation order. Returns false when it has no embroidered item. */
 export async function upsertSsOrder(o: SsOrder): Promise<boolean> {
-  const emb = o.items.filter((i) => EMB_RE.test(i.name ?? ""));
+  const emb = o.items.filter(isEmb);
   if (!emb.length) return false;
   const products = [...new Set(emb.map((i) => productType(i.name ?? "")))].join(", ");
   const items = emb.map((i) => ({

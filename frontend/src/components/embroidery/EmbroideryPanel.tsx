@@ -104,12 +104,15 @@ function OrdersTab({ meta }: { meta?: Meta }) {
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
   const [open, setOpen] = useState<string | null>(null);
+  // column-header sort; "" = the list's own order (oldest first for To do, newest otherwise)
+  const [sort, setSort] = useState("");
+  const [dir, setDir] = useState<"asc" | "desc">("asc");
   useEffect(() => { const t = setTimeout(() => { setQ(search.trim()); setPage(1); }, 300); return () => clearTimeout(t); }, [search]);
 
-  const key = ["embOrders", view, shop, q, page];
+  const key = ["embOrders", view, shop, q, page, sort, dir];
   const orders = useQuery({
     queryKey: key,
-    queryFn: () => api.get<{ orders: EmbOrder[]; total: number; pageSize: number }>(`/embroidery/orders${qs({ view, shop, q, page })}`),
+    queryFn: () => api.get<{ orders: EmbOrder[]; total: number; pageSize: number }>(`/embroidery/orders${qs({ view, shop, q, page, sort, dir: sort ? dir : "" })}`),
     refetchInterval: 30_000, placeholderData: keepPreviousData,
   });
   const patch = useMutation({
@@ -126,6 +129,16 @@ function OrdersTab({ meta }: { meta?: Meta }) {
     mutationFn: (b: { column: Column; value: string }) => api.post("/embroidery/options", b),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["embMeta"] }),
   });
+  // an order the sync skipped: pull it by number, then show it in "All"
+  const importOrder = useMutation({
+    mutationFn: (orderNumber: string) => api.post<{ found: boolean; orderNumber: string }>("/embroidery/import", { orderNumber }),
+    onSuccess: (r) => {
+      if (!r.found) return;
+      setView("all"); setPage(1);
+      qc.invalidateQueries({ queryKey: ["embOrders"] });
+      qc.invalidateQueries({ queryKey: ["embMeta"] });
+    },
+  });
 
   const opts = (c: Column) => (meta?.options ?? []).filter((o) => o.column === c);
   const set = (o: EmbOrder, field: Column, value: string | null) => patch.mutate({ id: o.id, field, value });
@@ -136,6 +149,19 @@ function OrdersTab({ meta }: { meta?: Meta }) {
   const rows = orders.data?.orders ?? [];
   const total = orders.data?.total ?? 0;
   const pages = Math.max(1, Math.ceil(total / (orders.data?.pageSize ?? 200)));
+
+  // click a header: sort ascending; click again: descending; a third click goes back to the list's own order
+  const clickSort = (k: string) => {
+    setPage(1);
+    if (sort !== k) { setSort(k); setDir("asc"); }
+    else if (dir === "asc") setDir("desc");
+    else setSort("");
+  };
+  const Th = ({ k, children }: { k: string; children: string }) => (
+    <th className={`emb-sortable ${sort === k ? "on" : ""}`} onClick={() => clickSort(k)} title="Click to sort">
+      {children}<span className="emb-arrow">{sort === k ? (dir === "asc" ? "▲" : "▼") : "⇅"}</span>
+    </th>
+  );
 
   return (
     <div className="emb-orders">
@@ -161,8 +187,9 @@ function OrdersTab({ meta }: { meta?: Meta }) {
         <table className="emb-table">
           <thead>
             <tr>
-              <th>Date</th><th>Order no</th><th>Shop name</th><th>Customer service</th><th>Order status</th><th>Product</th>
-              <th>Design</th><th>Design status</th><th>Logo or text</th><th>Print status</th><th>Label created</th><th>Prepared by</th>
+              <Th k="date">Date</Th><Th k="order">Order no</Th><Th k="shop">Shop name</Th><Th k="customerService">Customer service</Th>
+              <Th k="orderStatus">Order status</Th><Th k="product">Product</Th><Th k="design">Design</Th><Th k="designStatus">Design status</Th>
+              <Th k="logoOrText">Logo or text</Th><Th k="printStatus">Print status</Th><Th k="label">Label created</Th><Th k="preparedBy">Prepared by</Th>
             </tr>
           </thead>
           <tbody>
@@ -209,7 +236,18 @@ function OrdersTab({ meta }: { meta?: Meta }) {
               ];
             })}
             {!orders.isLoading && rows.length === 0 && (
-              <tr><td colSpan={12} className="emb-empty">{q || shop ? "No order matches." : view === "todo" ? "Nothing to do 🎉" : "No orders here."}</td></tr>
+              <tr><td colSpan={12} className="emb-empty">
+                {q || shop ? "No order matches." : view === "todo" ? "Nothing to do 🎉" : "No orders here."}
+                {/^\d{6,}$/.test(q) && (
+                  <div className="emb-import">
+                    {importOrder.data?.orderNumber === q && !importOrder.data.found
+                      ? "ShipStation has no embroidery order with this number."
+                      : <button className="emb-btn" disabled={importOrder.isPending} onClick={() => importOrder.mutate(q)}>
+                          {importOrder.isPending ? "Looking up…" : `Import ${q} from ShipStation`}
+                        </button>}
+                  </div>
+                )}
+              </td></tr>
             )}
           </tbody>
         </table>

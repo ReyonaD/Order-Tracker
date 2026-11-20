@@ -51,11 +51,32 @@ const VIEW_WHERE: Record<string, Prisma.EmbOrderWhereInput> = {
 };
 const OLDEST_FIRST = new Set(["todo", "nolabel", "nodesign"]);
 
+// Column-header sorting (?sort=<key>&dir=asc|desc). Empty manual values sort last either way.
+// "design" (number of design files) isn't a column: those rows are sorted in JS below.
+type Dir = "asc" | "desc";
+const nullsLast = (dir: Dir) => ({ sort: dir, nulls: "last" as const });
+const SORT_BY: Record<string, (dir: Dir) => Prisma.EmbOrderOrderByWithRelationInput[]> = {
+  date: (dir) => [{ orderDate: dir }],
+  order: (dir) => [{ orderNumber: dir }],
+  shop: (dir) => [{ shopName: nullsLast(dir) }],
+  customerService: (dir) => [{ customerService: nullsLast(dir) }],
+  orderStatus: (dir) => [{ orderStatus: nullsLast(dir) }],
+  product: (dir) => [{ products: dir }],
+  designStatus: (dir) => [{ designStatus: nullsLast(dir) }],
+  logoOrText: (dir) => [{ logoOrText: nullsLast(dir) }],
+  printStatus: (dir) => [{ printStatus: nullsLast(dir) }],
+  preparedBy: (dir) => [{ preparedBy: nullsLast(dir) }],
+  // label created: shipped (YES) / cancelled / awaiting, then by the ship-by date
+  label: (dir) => [{ ssStatus: dir }, { shipByDate: nullsLast(dir) }],
+};
+
 embroideryRouter.get("/orders", safe(async (req, res) => {
   const q = String(req.query.q ?? "").trim();
   const view = VIEW_WHERE[String(req.query.view)] ? String(req.query.view) : "todo";
   const shop = String(req.query.shop ?? "").trim();
   const page = Math.max(1, Number(req.query.page) || 1);
+  const sort = String(req.query.sort ?? "");
+  const dir: Dir = req.query.dir === "desc" ? "desc" : "asc";
   const where: Prisma.EmbOrderWhereInput = {
     AND: [
       VIEW_WHERE[view],
@@ -69,14 +90,20 @@ embroideryRouter.get("/orders", safe(async (req, res) => {
       ] } : {},
     ],
   };
-  const orderBy = { orderDate: OLDEST_FIRST.has(view) ? "asc" : "desc" } as const;
-  if (view === "nodesign") {
-    // open orders that no design file names yet
-    const open = await prisma.embOrder.findMany({ where, orderBy });
-    const have = new Set((await prisma.embDesignFile.findMany({
-      where: { orderNumber: { in: open.map((o) => o.orderNumber) } }, select: { orderNumber: true },
-    })).map((f) => f.orderNumber));
-    const rows = open.filter((o) => !have.has(o.orderNumber));
+  const defaultBy: Prisma.EmbOrderOrderByWithRelationInput = { orderDate: OLDEST_FIRST.has(view) ? "asc" : "desc" };
+  const orderBy = SORT_BY[sort] ? [...SORT_BY[sort](dir), defaultBy] : [defaultBy];
+  if (view === "nodesign" || sort === "design") {
+    // the whole list in memory: "no design yet" needs the file table, "design" sorts by it
+    const all = await prisma.embOrder.findMany({ where, orderBy });
+    const counts = new Map<string, number>();
+    for (const f of await prisma.embDesignFile.findMany({
+      where: { orderNumber: { in: all.map((o) => o.orderNumber) } }, select: { orderNumber: true },
+    })) if (f.orderNumber) counts.set(f.orderNumber, (counts.get(f.orderNumber) ?? 0) + 1);
+    let rows = view === "nodesign" ? all.filter((o) => !counts.has(o.orderNumber)) : all;
+    if (sort === "design") {
+      const n = (o: { orderNumber: string }) => counts.get(o.orderNumber) ?? 0;
+      rows = [...rows].sort((a, b) => (dir === "asc" ? n(a) - n(b) : n(b) - n(a)));
+    }
     res.json({ status: "success", total: rows.length, pageSize: PAGE, orders: await withDesigns(rows.slice((page - 1) * PAGE, page * PAGE)) });
     return;
   }
@@ -187,6 +214,14 @@ embroideryRouter.patch("/options/:id", safe(async (req, res) => {
 embroideryRouter.delete("/options/:id", safe(async (req, res) => {
   await prisma.embOption.delete({ where: { id: req.params.id } }).catch(() => null);
   res.json({ status: "success" });
+}));
+
+/** An order that the sync skipped (or hasn't reached yet): pull it from ShipStation by number. */
+embroideryRouter.post("/import", safe(async (req, res) => {
+  const orderNumber = String(req.body?.orderNumber ?? "").trim();
+  if (!/^[\w-]{3,40}$/.test(orderNumber)) { res.status(400).json({ status: "error", message: "Invalid order number" }); return; }
+  const found = await fetchByOrderNumber(orderNumber);
+  res.json({ status: "success", found, orderNumber });
 }));
 
 embroideryRouter.post("/sync", safe(async (_req, res) => {
