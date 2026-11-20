@@ -239,8 +239,11 @@ Replaces the hand-filled Google Sheet "EMB-EMBROIDERY ORDERS".
   the next login).
 - **Orders from ShipStation** (API v1, Basic auth `SS_API_KEY`/`SS_API_SECRET`; all ~50 Etsy shops are ShipStation
   stores). `services/embroiderySync.ts` polls `/orders?modifyDateStart=` every 3 min (cursor `EmbSyncState.ss_modify_since`,
-  10 min overlap; first run = last 30 days). An order is kept when any item name matches `/embroider/i` (SKU "EMB" alone
-  is not used; "Embarrassed" must not match). Date = `paymentDate` (Etsy purchase; ShipStation `orderDate` can be a later
+  10 min overlap; first run = last 30 days). An order is kept when any item name matches `/embroider/i` OR its SKU has the
+  word `EMB` (`\bEMB\b`, since 2026-11-20: the same listing is titled "Applique…" in one shop and "…Embroidered…" in
+  another; "Embarrassed" must not match). An order the sync skipped doesn't come back on its own (only modified orders are
+  polled) — search its number and press **Import … from ShipStation** (`POST /embroidery/import`). Column headers sort
+  (`?sort=&dir=`, server-side; `design` = file count, sorted in JS). Date = `paymentDate` (Etsy purchase; ShipStation `orderDate` can be a later
   re-import). ShipStation dates are Pacific, no offset. Product = `productType(name)` (SWEATSHIRT / Towel / BAG / SHIRT-POLO …).
   Shipped/cancelled follow ShipStation; a cancelled order gets orderStatus CANCELED and, unless printed,
   printStatus CANCELED (only when empty — hand-picked values stay). No webhook (polling is enough;
