@@ -123,7 +123,8 @@ it uploads end `failed` with that message).
   copied without a model call; existing families are passed in so other suppliers' items join them.
   `PATCH /purchases/groups` = manual rename/move (by description or whole family). $0 lines ("FREE GIFT")
   are listed but excluded from price figures. Cost ≈ 0.1¢ per invoice read + grouping.
-
+- **Paid tick (2026-11-20):** `PurchaseInvoice.paid/paidAt/paidBy`, `POST /purchases/:id/paid {paid}`; a "Paid" column with a
+  checkbox in the invoice table plus an "Unpaid" filter. Finance's own bookkeeping flag — nothing else reads it.
 ## Print progress from the floor (DTF Monitor → `/integrations/print`)
 Two modes on the same endpoint (`backend/src/routes/integrations.ts`, `X-Api-Key`):
 - **Order-level (legacy)**: `{orderCode, machine, operator, printStatus}` sets the order's

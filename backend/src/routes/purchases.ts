@@ -23,7 +23,7 @@ const upload = multer({
 const LIST_SELECT = {
   id: true, fileName: true, mimeType: true, fileSize: true, status: true, supplier: true, invoiceNumber: true,
   invoiceDate: true, currency: true, subtotal: true, tax: true, shipping: true, discount: true, total: true,
-  checkNote: true, aiModel: true, error: true, uploadedBy: true, approvedBy: true, approvedAt: true,
+  checkNote: true, aiModel: true, error: true, uploadedBy: true, approvedBy: true, approvedAt: true, paid: true, paidAt: true, paidBy: true,
   createdAt: true, updatedAt: true,
 } satisfies Prisma.PurchaseInvoiceSelect;
 
@@ -221,6 +221,18 @@ purchaseRouter.post("/:id/approve", async (req, res) => {
 });
 
 // Approved by mistake: back to review (it leaves the price history until approved again).
+/** Finance's paid / unpaid tick. */
+purchaseRouter.post("/:id/paid", async (req, res) => {
+  const paid = req.body?.paid === true;
+  const invoice = await prisma.purchaseInvoice.update({
+    where: { id: req.params.id },
+    data: paid ? { paid: true, paidAt: new Date(), paidBy: await userName(req.user!.id) } : { paid: false, paidAt: null, paidBy: null },
+    select: LIST_SELECT,
+  }).catch(() => null);
+  if (!invoice) { res.status(404).json({ status: "error", message: "Invoice not found" }); return; }
+  res.json({ status: "success", invoice });
+});
+
 purchaseRouter.post("/:id/unapprove", async (req, res) => {
   const r = await prisma.purchaseInvoice.updateMany({
     where: { id: req.params.id, status: "approved" },

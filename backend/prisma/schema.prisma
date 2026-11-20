@@ -414,6 +414,10 @@ model PurchaseInvoice {
   uploadedBy    String?
   approvedBy    String?
   approvedAt    DateTime?
+  // Finance's own "did we pay this" tick; nothing else depends on it
+  paid          Boolean        @default(false)
+  paidAt        DateTime?
+  paidBy        String?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   items         PurchaseItem[]

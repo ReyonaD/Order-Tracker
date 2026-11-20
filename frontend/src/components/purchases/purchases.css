@@ -24,6 +24,9 @@
 .pu-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .pu-filters { display: flex; gap: 4px; flex-wrap: wrap; }
 .pu-filter { height: 28px; padding: 0 10px; border: 1px solid #d0d7de; background: #fff; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; color: #57606a; }
+.pu-paid { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; color: #9a6700; font-weight: 600; white-space: nowrap; }
+.pu-paid input { cursor: pointer; width: 15px; height: 15px; }
+.pu-paid .yes { color: #116329; }
 .pu-filter span { color: #8b949e; font-weight: 500; margin-left: 2px; }
 .pu-filter.on { background: #ddf4ff; border-color: #54aeff; color: #0969da; }
 .pu-search { height: 32px; width: 280px; max-width: 100%; border: 1px solid #d0d7de; border-radius: 8px; padding: 0 10px; font-size: 13px; }

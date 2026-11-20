@@ -18,6 +18,7 @@ export interface Invoice {
   subtotal: number | null; tax: number | null; shipping: number | null; discount: number | null; total: number | null;
   checkNote: string | null; aiModel: string | null; error: string | null;
   uploadedBy: string | null; approvedBy: string | null; approvedAt: string | null; createdAt: string;
+  paid: boolean; paidAt: string | null; paidBy: string | null;
   _count?: { items: number };
   items?: Item[];
 }
@@ -77,7 +78,14 @@ function InvoicesTab({ onOpen }: { onOpen: (id: string) => void }) {
     for (const i of all) c[i.status] = (c[i.status] ?? 0) + 1;
     return c;
   }, [all]);
-  const rows = filter ? all.filter((i) => i.status === filter) : all;
+  const [unpaidOnly, setUnpaidOnly] = useState(false);
+  const rows = (filter ? all.filter((i) => i.status === filter) : all).filter((i) => !unpaidOnly || !i.paid);
+  const unpaidCount = all.filter((i) => !i.paid).length;
+  const setPaid = useMutation({
+    mutationFn: (b: { id: string; paid: boolean }) => api.post<{ invoice: Invoice }>(`/purchases/${b.id}/paid`, { paid: b.paid }),
+    onSuccess: (r) => qc.setQueryData(["purchases", q], (d: { invoices: Invoice[] } | undefined) =>
+      d && { ...d, invoices: d.invoices.map((i) => (i.id === r.invoice.id ? r.invoice : i)) }),
+  });
 
   // approved spend per month (by invoice date), per currency
   const months = useMemo(() => {
@@ -114,6 +122,9 @@ function InvoicesTab({ onOpen }: { onOpen: (id: string) => void }) {
               {f.label} <span>{counts[f.key] ?? 0}</span>
             </button>
           ))}
+          <button className={`pu-filter ${unpaidOnly ? "on" : ""}`} onClick={() => setUnpaidOnly(!unpaidOnly)} title="Only invoices not ticked as paid">
+            Unpaid <span>{unpaidCount}</span>
+          </button>
         </div>
         <input className="pu-search" placeholder="Search supplier, invoice no, product…" value={search} onChange={(e) => setSearch(e.target.value)} />
       </div>
@@ -122,7 +133,7 @@ function InvoicesTab({ onOpen }: { onOpen: (id: string) => void }) {
       <div className="pu-table-wrap">
         <table className="pu-table">
           <thead>
-            <tr><th>Invoice date</th><th>Supplier</th><th>Invoice no</th><th className="num">Items</th><th className="num">Total</th><th>Status</th><th>Uploaded</th></tr>
+            <tr><th>Invoice date</th><th>Supplier</th><th>Invoice no</th><th className="num">Items</th><th className="num">Total</th><th>Status</th><th>Paid</th><th>Uploaded</th></tr>
           </thead>
           <tbody>
             {rows.map((i) => (
@@ -139,11 +150,17 @@ function InvoicesTab({ onOpen }: { onOpen: (id: string) => void }) {
                   <span className={`pu-status ${i.status}`}>{STATUS_LABEL[i.status]}</span>
                   {i.status === "review" && i.checkNote && <span className="pu-flag" title={i.checkNote}>⚠ check</span>}
                 </td>
+                <td onClick={(e) => e.stopPropagation()}>
+                  <label className="pu-paid" title={i.paid && i.paidAt ? `Paid · ${i.paidBy ?? ""} ${new Date(i.paidAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : "Tick when this invoice is paid"}>
+                    <input type="checkbox" checked={i.paid} disabled={setPaid.isPending} onChange={(e) => setPaid.mutate({ id: i.id, paid: e.target.checked })} />
+                    <span className={i.paid ? "yes" : ""}>{i.paid ? "Paid" : "Unpaid"}</span>
+                  </label>
+                </td>
                 <td className="pu-dim">{new Date(i.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}{i.uploadedBy ? ` · ${i.uploadedBy}` : ""}</td>
               </tr>
             ))}
             {!listQ.isLoading && rows.length === 0 && (
-              <tr><td colSpan={7} className="pu-empty">{all.length ? "Nothing here with this filter." : "No invoices yet. Drop your first PDF or photo above."}</td></tr>
+              <tr><td colSpan={8} className="pu-empty">{all.length ? "Nothing here with this filter." : "No invoices yet. Drop your first PDF or photo above."}</td></tr>
             )}
           </tbody>
         </table>
